@@ -179,24 +179,25 @@ def write_json(path: Path, payload: Dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
 
-def container_path(workspace: Path, host_path: Path) -> str:
+def container_path(workspace: Path, host_path: Path, container_workspace: str) -> str:
     host_path = host_path.resolve()
     workspace = workspace.resolve()
     try:
         rel = host_path.relative_to(workspace)
     except ValueError:
         raise ValueError(f"{host_path} is not under workspace {workspace}")
-    return "/workspace/" + str(rel).replace(os.sep, "/")
+    return container_workspace.rstrip("/") + "/" + str(rel).replace(os.sep, "/")
 
 
 def docker_bash(container: str, command: str) -> List[str]:
     return ["docker", "exec", container, "bash", "-lc", command]
 
 
-def ros_env_command(command: str) -> str:
+def ros_env_command(command: str, container_workspace: str = "/workspace") -> str:
+    quoted_workspace = shlex.quote(container_workspace)
     return (
         "source /opt/ros/noetic/setup.bash && "
-        "cd /workspace && "
+        f"cd {quoted_workspace} && "
         "source devel/setup.bash && "
         f"{command}"
     )
@@ -242,9 +243,9 @@ def stop_existing_experiment(container: str) -> None:
     )
 
 
-def wait_for_ros_master(container: str, timeout_sec: float) -> bool:
+def wait_for_ros_master(container: str, timeout_sec: float, container_workspace: str) -> bool:
     deadline = time.time() + timeout_sec
-    probe = ros_env_command("rostopic list >/dev/null 2>&1")
+    probe = ros_env_command("rostopic list >/dev/null 2>&1", container_workspace)
     while time.time() < deadline:
         result = run_command(docker_bash(container, probe))
         if result.returncode == 0:
@@ -258,9 +259,11 @@ def start_rostopic_csv(
     topic: str,
     output_container_path: str,
     stderr_path: Path,
+    container_workspace: str,
 ) -> subprocess.Popen:
     command = ros_env_command(
-        f"rostopic echo -p {shlex.quote(topic)} > {shlex.quote(output_container_path)}"
+        f"rostopic echo -p {shlex.quote(topic)} > {shlex.quote(output_container_path)}",
+        container_workspace,
     )
     err = stderr_path.open("w", encoding="utf-8")
     return subprocess.Popen(
@@ -325,6 +328,7 @@ def run_experiment(args: argparse.Namespace) -> Path:
         "run_id": run_id,
         "created_at": iso_now(),
         "workspace": str(workspace),
+        "container_workspace": args.container_workspace,
         "container": args.container,
         "launch_file": launch_target,
         "launch_args": launch_args,
@@ -350,7 +354,8 @@ def run_experiment(args: argparse.Namespace) -> Path:
     else:
         roslaunch_target = shlex.quote(args.launch_file)
     launch_command = ros_env_command(
-        f"roslaunch {roslaunch_target} " + launch_arg_text
+        f"roslaunch {roslaunch_target} " + launch_arg_text,
+        args.container_workspace,
     )
     roslaunch_log = run_dir / "roslaunch.log"
     with roslaunch_log.open("w", encoding="utf-8", errors="replace") as log_file:
@@ -362,7 +367,9 @@ def run_experiment(args: argparse.Namespace) -> Path:
         )
 
         topic_procs: List[subprocess.Popen] = []
-        if args.record_trajectories and wait_for_ros_master(args.container, 30.0):
+        if args.record_trajectories and wait_for_ros_master(
+            args.container, 30.0, args.container_workspace
+        ):
             topics = {
                 "kimera_odometry": "/kimera_vio_ros/odometry",
                 "liorf_odometry": "/liorf/mapping/odometry",
@@ -374,8 +381,9 @@ def run_experiment(args: argparse.Namespace) -> Path:
                     start_rostopic_csv(
                         args.container,
                         topic,
-                        container_path(workspace, csv_path),
+                        container_path(workspace, csv_path, args.container_workspace),
                         err_path,
+                        args.container_workspace,
                     )
                 )
                 manifest["recorded_topics"][label] = {
@@ -3208,6 +3216,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
     run_parser = subparsers.add_parser("run", help="launch the standard experiment and report it")
     run_parser.add_argument("--workspace", type=Path, default=workspace_root_from_script())
+    run_parser.add_argument("--container-workspace", default="/workspace")
     run_parser.add_argument("--container", default=DEFAULT_CONTAINER)
     run_parser.add_argument("--output-root", type=Path, default=None)
     run_parser.add_argument("--name", default="")
