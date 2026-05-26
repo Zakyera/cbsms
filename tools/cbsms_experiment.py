@@ -28,10 +28,41 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 
 DEFAULT_CONTAINER = "cbsms_ws"
-DEFAULT_BAG_PATH = "/data/s3e/S3E_Square_1/S3E_Square_1_alpha_ros1.bag"
-DEFAULT_GT_RELATIVE = "cbs_fresh_ws/datasets/S3E/S3E_Square_1/alpha_gt.txt"
+DEFAULT_CONTAINER_WORKSPACE = "/workspace/cbs_gtsam4.3"
+DEFAULT_BAG_PATH = (
+    DEFAULT_CONTAINER_WORKSPACE
+    + "/src/datasets/S3E/S3E_Square_1/S3E_Square_1_alpha_ros1.bag"
+)
+DEFAULT_GT_RELATIVE = "src/datasets/S3E/S3E_Square_1/alpha_gt.txt"
 DEFAULT_RERUN_HOST = "rerun+http://172.17.0.1:9876/proxy"
-CORE_REPOS = ["cbsms", "cbs", "liorf", "Kimera-VIO", "Kimera-VIO-ROS"]
+CORE_REPOS = [
+    "cbsms",
+    "cbs",
+    "liorf",
+    "Kimera-VIO",
+    "Kimera-VIO-ROS",
+    "glim",
+    "glim_ros1",
+    "gtsam_points",
+]
+EXPERIMENT_PROFILES: Dict[str, Dict[str, Any]] = {
+    "liorf_kimera": {
+        "launch_package": "kimera_vio_ros",
+        "launch_file": "s3e_alpha_liorf_kimera_experiment.launch",
+        "trajectory_topics": {
+            "kimera": "/kimera_vio_ros/odometry",
+            "liorf": "/liorf/mapping/odometry",
+        },
+    },
+    "glim_kimera": {
+        "launch_package": "glim_ros",
+        "launch_file": "s3e_alpha_glim_kimera_experiment.launch",
+        "trajectory_topics": {
+            "kimera": "/kimera_vio_ros/odometry",
+            "glim": "/glim/cbs/odometry",
+        },
+    },
+}
 ANSI_RE = re.compile(
     r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]|\][^\a]*(?:\a|\x1b\\))"
 )
@@ -61,6 +92,12 @@ ROW_MARKERS = (
     "CBS_TEMPORARY_LINEARIZATION_RESIDUAL_ROW",
     "CBS_KIMERA_OUTGOING_PROVENANCE_ROW",
     "CBS_MARGINALIZATION_GRAPH_ROW",
+    "GLIM_CBS_ODOM_INJECT_ROW",
+    "KIMERA_BACKEND_SPINONCE_TIMING_ROW",
+    "KIMERA_CBS_OUTGOING_TIMING_ROW",
+    "KIMERA_OPTIMIZE_TIMING_ROW",
+    "KIMERA_BACKEND_CALLBACK_TIMING_ROW",
+    "KIMERA_RERUN_CALLBACK_TIMING_ROW",
 )
 VALID_BPSAM_STATUSES = {
     "accepted",
@@ -237,8 +274,10 @@ def stop_existing_experiment(container: str) -> None:
         [
             "s3e_alpha_liorf_kimera_experiment.launch",
             "s3e_alpha_liorf_kimera_topics.launch",
+            "s3e_alpha_glim_kimera_experiment.launch",
             "rostopic echo -p /kimera_vio_ros/odometry",
             "rostopic echo -p /liorf/mapping/odometry",
+            "rostopic echo -p /glim/cbs/odometry",
         ],
     )
 
@@ -285,7 +324,48 @@ def terminate_process(proc: subprocess.Popen, timeout_sec: float = 5.0) -> None:
         proc.wait(timeout=timeout_sec)
 
 
+def selected_profile(args: argparse.Namespace) -> Dict[str, Any]:
+    profile = EXPERIMENT_PROFILES.get(args.experiment_profile)
+    if profile is None:
+        raise ValueError(f"unknown experiment profile: {args.experiment_profile}")
+    return profile
+
+
+def parse_trajectory_topic_specs(
+    profile_topics: Dict[str, str],
+    specs: Sequence[str],
+) -> Dict[str, str]:
+    topics = dict(profile_topics)
+    for spec in specs:
+        if "=" not in spec:
+            raise ValueError(f"trajectory topic must look like label=/topic: {spec}")
+        label, topic = spec.split("=", 1)
+        label = slugify(label).replace("-", "_")
+        topic = topic.strip()
+        if not label or not topic.startswith("/"):
+            raise ValueError(f"trajectory topic must look like label=/topic: {spec}")
+        topics[label] = topic
+    return topics
+
+
+def odometry_csv_name(label: str) -> str:
+    return label if label.endswith("_odometry") else f"{label}_odometry"
+
+
+def odometry_estimator_name(path: Path) -> str:
+    stem = path.stem
+    suffix = "_odometry"
+    return stem[: -len(suffix)] if stem.endswith(suffix) else stem
+
+
 def run_experiment(args: argparse.Namespace) -> Path:
+    profile = selected_profile(args)
+    launch_package = args.launch_package or str(profile["launch_package"])
+    launch_file = args.launch_file or str(profile["launch_file"])
+    trajectory_topics = parse_trajectory_topic_specs(
+        profile["trajectory_topics"], args.trajectory_topic
+    )
+
     workspace = args.workspace.resolve()
     runs_root = args.output_root.resolve() if args.output_root else workspace / "runs"
     stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -304,14 +384,16 @@ def run_experiment(args: argparse.Namespace) -> Path:
     launch_args = {
         "bag_path": args.bag_path,
         "bag_duration": str(args.duration),
+        "shutdown_on_bag_finish": str(args.shutdown_on_bag_finish).lower(),
         "enable_cbs_bridge": str(args.enable_cbs_bridge).lower(),
         "use_kimera_rviz": str(args.use_kimera_rviz).lower(),
-        "use_liorf_rviz": str(args.use_liorf_rviz).lower(),
         "kimera_visualize": str(args.kimera_visualize).lower(),
         "rerun_visualizer_enable": str(args.rerun_visualizer_enable).lower(),
         "rerun_world_alignment_enable": str(args.rerun_world_alignment_enable).lower(),
         "rerun_host": args.rerun_host,
     }
+    if args.experiment_profile == "liorf_kimera":
+        launch_args["use_liorf_rviz"] = str(args.use_liorf_rviz).lower()
     for item in args.extra_arg:
         if ":=" not in item:
             raise ValueError(f"extra launch arg must look like key:=value: {item}")
@@ -319,14 +401,15 @@ def run_experiment(args: argparse.Namespace) -> Path:
         launch_args[key] = value
 
     launch_target = (
-        f"{args.launch_package} {args.launch_file}".strip()
-        if args.launch_package
-        else args.launch_file
+        f"{launch_package} {launch_file}".strip()
+        if launch_package
+        else launch_file
     )
 
     manifest: Dict[str, Any] = {
         "run_id": run_id,
         "created_at": iso_now(),
+        "experiment_profile": args.experiment_profile,
         "workspace": str(workspace),
         "container_workspace": args.container_workspace,
         "container": args.container,
@@ -347,12 +430,12 @@ def run_experiment(args: argparse.Namespace) -> Path:
     launch_arg_text = " ".join(
         f"{key}:={shlex.quote(value)}" for key, value in launch_args.items()
     )
-    if args.launch_package:
+    if launch_package:
         roslaunch_target = (
-            f"{shlex.quote(args.launch_package)} {shlex.quote(args.launch_file)}"
+            f"{shlex.quote(launch_package)} {shlex.quote(launch_file)}"
         )
     else:
-        roslaunch_target = shlex.quote(args.launch_file)
+        roslaunch_target = shlex.quote(launch_file)
     launch_command = ros_env_command(
         f"roslaunch {roslaunch_target} " + launch_arg_text,
         args.container_workspace,
@@ -370,12 +453,8 @@ def run_experiment(args: argparse.Namespace) -> Path:
         if args.record_trajectories and wait_for_ros_master(
             args.container, 30.0, args.container_workspace
         ):
-            topics = {
-                "kimera_odometry": "/kimera_vio_ros/odometry",
-                "liorf_odometry": "/liorf/mapping/odometry",
-            }
-            for label, topic in topics.items():
-                csv_path = traj_dir / f"{label}.csv"
+            for label, topic in trajectory_topics.items():
+                csv_path = traj_dir / f"{odometry_csv_name(label)}.csv"
                 err_path = traj_dir / f"{label}.stderr.log"
                 topic_procs.append(
                     start_rostopic_csv(
@@ -557,13 +636,16 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
     odom_match_rows: List[Dict[str, Any]] = []
     odom_retry_rows: List[Dict[str, Any]] = []
     bpsam_odom_add_rows: List[Dict[str, Any]] = []
+    glim_odom_inject_rows: List[Dict[str, Any]] = []
     odom_factor_covariance_rows: List[Dict[str, Any]] = []
     temporary_linearization_residual_rows: List[Dict[str, Any]] = []
     provenance_rows: List[Dict[str, Any]] = []
     marginalization_graph_rows: List[Dict[str, Any]] = []
+    timing_rows: List[Dict[str, Any]] = []
     kimera_flow_rows: List[Dict[str, int]] = []
     kimera_odom_flow_rows: List[Dict[str, int]] = []
     liorf_odom_flow_rows: List[Dict[str, int]] = []
+    glim_odom_flow_rows: List[Dict[str, int]] = []
     alignment_rows: List[Dict[str, float]] = []
     skipped_rows: Counter[str] = Counter()
 
@@ -599,6 +681,11 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
         r"inactive_window=(?P<inactive_window>\d+),shape=(?P<shape>\d+),"
         r"exception=(?P<exception>\d+)\)"
     )
+    glim_odom_flow_re = re.compile(
+        r"GLIM CBS incoming flow: matched=(?P<matched>\d+) "
+        r"injected=(?P<injected>\d+) duplicate=(?P<duplicate>\d+) "
+        r"rejected=(?P<rejected>\d+) pending=(?P<pending>\d+)"
+    )
     alignment_re = re.compile(
         r"Kimera Rerun world alignment initialized .* dt=(?P<dt_ms>[-+0-9.eE]+) ms"
     )
@@ -629,6 +716,14 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
                         {
                             key: int(value) if value is not None else 0
                             for key, value in liorf_odom_flow_match.groupdict().items()
+                        }
+                    )
+                glim_odom_flow_match = glim_odom_flow_re.search(line)
+                if glim_odom_flow_match:
+                    glim_odom_flow_rows.append(
+                        {
+                            key: int(value) if value is not None else 0
+                            for key, value in glim_odom_flow_match.groupdict().items()
                         }
                     )
 
@@ -710,6 +805,9 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
                             continue
                         if marker == "CBS_MARGINALIZATION_GRAPH_ROW" and len(row) < 12:
                             skipped_rows[f"{marker}:malformed_marginalization_graph"] += 1
+                            continue
+                        if marker == "GLIM_CBS_ODOM_INJECT_ROW" and len(row) < 7:
+                            skipped_rows[f"{marker}:malformed_glim_odom_inject"] += 1
                             continue
 
                         if marker.startswith("CBS_TRANSPORT_ROW"):
@@ -1169,6 +1267,8 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
                                 if robot == "k"
                                 else "L2K"
                                 if robot == "l"
+                                else "G2K"
+                                if robot == "g"
                                 else f"{robot.upper()}2?"
                             )
                             marginalization_graph_rows.append(
@@ -1187,6 +1287,30 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
                                     "tmp_marginals": row[11] == "true",
                                 }
                             )
+                        elif marker == "GLIM_CBS_ODOM_INJECT_ROW":
+                            glim_odom_inject_rows.append(
+                                {
+                                    "direction": "K2G",
+                                    "sender_edge": row[1],
+                                    "receiver_edge": row[2],
+                                    "from_abs_dt": to_float(row[3]),
+                                    "to_abs_dt": to_float(row[4]),
+                                    "covariance_trace": to_float(row[5]),
+                                    "status": row[6],
+                                }
+                            )
+                        elif marker in {
+                            "KIMERA_BACKEND_SPINONCE_TIMING_ROW",
+                            "KIMERA_CBS_OUTGOING_TIMING_ROW",
+                            "KIMERA_OPTIMIZE_TIMING_ROW",
+                            "KIMERA_BACKEND_CALLBACK_TIMING_ROW",
+                            "KIMERA_RERUN_CALLBACK_TIMING_ROW",
+                        }:
+                            timing = parse_kimera_timing_row(row)
+                            if timing:
+                                timing_rows.append(timing)
+                            else:
+                                skipped_rows[f"{marker}:malformed_timing"] += 1
 
     return {
         "transport": transport_rows,
@@ -1202,16 +1326,96 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
         "odom_match": odom_match_rows,
         "odom_retry": odom_retry_rows,
         "bpsam_odom_add": bpsam_odom_add_rows,
+        "glim_odom_inject": glim_odom_inject_rows,
         "odom_factor_covariance": odom_factor_covariance_rows,
         "temporary_linearization_residual": temporary_linearization_residual_rows,
         "provenance": provenance_rows,
         "marginalization_graph": marginalization_graph_rows,
+        "timing": timing_rows,
         "kimera_flow": kimera_flow_rows,
         "kimera_odom_flow": kimera_odom_flow_rows,
         "liorf_odom_flow": liorf_odom_flow_rows,
+        "glim_odom_flow": glim_odom_flow_rows,
         "alignment": alignment_rows,
         "skipped_rows": dict(skipped_rows),
     }
+
+
+def parse_kimera_timing_row(row: List[str]) -> Dict[str, Any]:
+    marker = row[0] if row else ""
+    common = {
+        "marker": marker,
+        "stage": marker.replace("KIMERA_", "").replace("_TIMING_ROW", "").lower(),
+    }
+    if marker == "KIMERA_BACKEND_SPINONCE_TIMING_ROW" and len(row) >= 10:
+        return {
+            **common,
+            "cur_kf_id": to_int(row[1]),
+            "total_ms": to_float(row[2]),
+            "backend_state_process_ms": to_float(row[3]),
+            "output_landmark_map_ms": to_float(row[4]),
+            "map_update_callback_ms": to_float(row[5]),
+            "backend_output_construct_ms": to_float(row[6]),
+            "backend_logger_output_ms": to_float(row[7]),
+            "backend_state": to_int(row[8]),
+            "backend_status_ok": to_int(row[9]),
+        }
+    if marker == "KIMERA_CBS_OUTGOING_TIMING_ROW" and len(row) >= 8:
+        return {
+            **common,
+            "cur_kf_id": to_int(row[1]),
+            "total_ms": to_float(row[2]),
+            "set_marginalization_graph_ms": to_float(row[3]),
+            "get_odometry_beliefs_ms": to_float(row[4]),
+            "outgoing_odom_beliefs": to_int(row[5]),
+            "marginalization_graph_factor_count": to_int(row[6]),
+            "request_keys": to_int(row[7]),
+        }
+    if marker == "KIMERA_OPTIMIZE_TIMING_ROW" and len(row) >= 18:
+        return {
+            **common,
+            "cur_kf_id": to_int(row[1]),
+            "total_ms": to_float(row[2]),
+            "factor_preparation_ms": to_float(row[3]),
+            "collect_external_beliefs_ms": to_float(row[4]),
+            "delete_slots_sort_ms": to_float(row[5]),
+            "smoother_update_ms": to_float(row[6]),
+            "slot_bookkeeping_ms": to_float(row[7]),
+            "extra_iterations_ms": to_float(row[8]),
+            "update_states_ms": to_float(row[9]),
+            "cbs_outgoing_total_ms": to_float(row[10]),
+            "cbs_set_marginalization_graph_ms": to_float(row[11]),
+            "cbs_get_odometry_beliefs_ms": to_float(row[12]),
+            "compute_state_covariance_ms": to_float(row[13]),
+            "post_debug_ms": to_float(row[14]),
+            "outgoing_odom_beliefs": to_int(row[15]),
+            "marginalization_graph_factor_count": to_int(row[16]),
+            "smoother_ok": to_int(row[17]),
+        }
+    if marker == "KIMERA_BACKEND_CALLBACK_TIMING_ROW" and len(row) >= 7:
+        return {
+            **common,
+            "cur_kf_id": to_int(row[1]),
+            "total_ms": to_float(row[2]),
+            "odometry_publish_ms": to_float(row[3]),
+            "rerun_publish_ms": to_float(row[4]),
+            "odometry_belief_publish_ms": to_float(row[5]),
+            "use_rviz": to_int(row[6]),
+        }
+    if marker == "KIMERA_RERUN_CALLBACK_TIMING_ROW" and len(row) >= 10:
+        return {
+            **common,
+            "cur_kf_id": to_int(row[1]),
+            "total_ms": to_float(row[2]),
+            "current_pose_ms": to_float(row[3]),
+            "trajectory_ms": to_float(row[4]),
+            "landmarks_ms": to_float(row[5]),
+            "factor_graph_ms": to_float(row[6]),
+            "landmark_count": to_int(row[7]),
+            "factor_graph_factor_count": to_int(row[8]),
+            "factor_graph_enabled": to_int(row[9]),
+        }
+    return {}
 
 
 def write_dicts_csv(path: Path, rows: List[Dict[str, Any]]) -> None:
@@ -1466,17 +1670,38 @@ def trajectory_metric_row(name: str, traj: Trajectory, reference: Trajectory) ->
     }
 
 
+def load_estimator_odometry(run_dir: Path) -> Dict[str, PoseTrajectory]:
+    trajectories: Dict[str, PoseTrajectory] = {}
+    traj_dir = run_dir / "trajectories"
+    for path in sorted(traj_dir.glob("*_odometry.csv")):
+        estimator = odometry_estimator_name(path)
+        poses = load_odometry_poses(path)
+        if poses:
+            trajectories[estimator] = poses
+    return trajectories
+
+
 def compute_trajectory_metrics(run_dir: Path, gt_path: Path) -> List[Dict[str, Any]]:
     gt = load_ground_truth(gt_path)
-    kimera = load_odometry_csv(run_dir / "trajectories" / "kimera_odometry.csv")
-    liorf = load_odometry_csv(run_dir / "trajectories" / "liorf_odometry.csv")
+    estimators = {
+        name: [(pose["t"], (pose["x"], pose["y"], pose["z"])) for pose in poses]
+        for name, poses in load_estimator_odometry(run_dir).items()
+    }
 
     rows: List[Dict[str, Any]] = []
     if gt:
-        rows.append(trajectory_metric_row("kimera_vs_ground_truth", kimera, gt))
-        rows.append(trajectory_metric_row("liorf_vs_ground_truth", liorf, gt))
-    if kimera and liorf:
-        rows.append(trajectory_metric_row("kimera_vs_liorf", kimera, liorf))
+        for name, traj in sorted(estimators.items()):
+            rows.append(trajectory_metric_row(f"{name}_vs_ground_truth", traj, gt))
+    names = sorted(estimators)
+    for i, lhs in enumerate(names):
+        for rhs in names[i + 1 :]:
+            rows.append(
+                trajectory_metric_row(
+                    f"{lhs}_vs_{rhs}",
+                    estimators[lhs],
+                    estimators[rhs],
+                )
+            )
     return rows
 
 
@@ -1536,31 +1761,18 @@ def interpolate_ground_truth_for_estimator(
 def export_tum_artifacts(run_dir: Path, gt_path: Path) -> Dict[str, Path]:
     tum_dir = run_dir / "trajectories" / "tum"
     gt_poses = load_ground_truth_poses(gt_path)
-    kimera_poses = load_odometry_poses(run_dir / "trajectories" / "kimera_odometry.csv")
-    liorf_poses = load_odometry_poses(run_dir / "trajectories" / "liorf_odometry.csv")
+    estimators = load_estimator_odometry(run_dir)
 
-    paths = {
-        "ground_truth": tum_dir / "ground_truth.tum",
-        "kimera": tum_dir / "kimera.tum",
-        "liorf": tum_dir / "liorf.tum",
-        "ground_truth_kimera": tum_dir / "ground_truth_for_kimera.tum",
-        "kimera_eval": tum_dir / "kimera_eval.tum",
-        "ground_truth_liorf": tum_dir / "ground_truth_for_liorf.tum",
-        "liorf_eval": tum_dir / "liorf_eval.tum",
-    }
-
+    paths = {"ground_truth": tum_dir / "ground_truth.tum"}
     write_tum_poses(paths["ground_truth"], gt_poses)
-    write_tum_poses(paths["kimera"], kimera_poses)
-    write_tum_poses(paths["liorf"], liorf_poses)
-
-    gt_kimera, kimera_eval = interpolate_ground_truth_for_estimator(
-        gt_poses, kimera_poses
-    )
-    gt_liorf, liorf_eval = interpolate_ground_truth_for_estimator(gt_poses, liorf_poses)
-    write_tum_poses(paths["ground_truth_kimera"], gt_kimera)
-    write_tum_poses(paths["kimera_eval"], kimera_eval)
-    write_tum_poses(paths["ground_truth_liorf"], gt_liorf)
-    write_tum_poses(paths["liorf_eval"], liorf_eval)
+    for estimator, poses in sorted(estimators.items()):
+        paths[estimator] = tum_dir / f"{estimator}.tum"
+        paths[f"ground_truth_{estimator}"] = tum_dir / f"ground_truth_for_{estimator}.tum"
+        paths[f"{estimator}_eval"] = tum_dir / f"{estimator}_eval.tum"
+        write_tum_poses(paths[estimator], poses)
+        gt_eval, est_eval = interpolate_ground_truth_for_estimator(gt_poses, poses)
+        write_tum_poses(paths[f"ground_truth_{estimator}"], gt_eval)
+        write_tum_poses(paths[f"{estimator}_eval"], est_eval)
     return paths
 
 
@@ -1620,9 +1832,20 @@ def run_evo_metrics(run_dir: Path, gt_path: Path) -> List[Dict[str, Any]]:
     evo_home = run_dir / ".evo_home"
     rows: List[Dict[str, Any]] = []
 
+    estimators = sorted(
+        key
+        for key in tum_paths
+        if key != "ground_truth"
+        and not key.startswith("ground_truth_")
+        and not key.endswith("_eval")
+    )
     specs = [
-        ("kimera", tum_paths["ground_truth_kimera"], tum_paths["kimera_eval"]),
-        ("liorf", tum_paths["ground_truth_liorf"], tum_paths["liorf_eval"]),
+        (
+            estimator,
+            tum_paths[f"ground_truth_{estimator}"],
+            tum_paths[f"{estimator}_eval"],
+        )
+        for estimator in estimators
     ]
     for estimator, reference, estimate in specs:
         if not reference.exists() or not estimate.exists() or estimate.stat().st_size == 0:
@@ -1707,6 +1930,61 @@ def sum_kimera_flow(rows: List[Dict[str, int]]) -> Dict[str, int]:
         for key, value in row.items():
             totals[key] += value
     return dict(totals)
+
+
+def rate_summary(
+    rows: List[Dict[str, Any]],
+    group_key: str,
+    duration_sec: float,
+) -> List[Dict[str, Any]]:
+    by_group: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        by_group[str(row.get(group_key, ""))].append(row)
+    out: List[Dict[str, Any]] = []
+    for group, group_rows in sorted(by_group.items()):
+        if not group:
+            continue
+        count = len(group_rows)
+        out.append(
+            {
+                group_key: group,
+                "count": count,
+                "approx_hz_over_bag_duration": count / duration_sec
+                if duration_sec > 0.0
+                else math.nan,
+            }
+        )
+    return out
+
+
+def timing_summary(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    by_stage: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        by_stage[str(row.get("stage", ""))].append(row)
+    summary: List[Dict[str, Any]] = []
+    for stage, stage_rows in sorted(by_stage.items()):
+        metric_keys = sorted(
+            {
+                key
+                for row in stage_rows
+                for key, value in row.items()
+                if key.endswith("_ms") and isinstance(value, (int, float))
+            }
+        )
+        for key in metric_keys:
+            values = [float(row.get(key, math.nan)) for row in stage_rows]
+            summary.append(
+                {
+                    "stage": stage,
+                    "metric": key,
+                    "count": numeric_stats(values)["count"],
+                    "mean_ms": numeric_stats(values)["mean"],
+                    "p50_ms": percentile(values, 0.50),
+                    "p95_ms": percentile(values, 0.95),
+                    "max_ms": numeric_stats(values)["max"],
+                }
+            )
+    return summary
 
 
 def covariance_summary(transport_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -2299,6 +2577,14 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
     marginalization_graph_rows = marginalization_graph_summary(
         parsed["marginalization_graph"]
     )
+    timing_summary_rows = timing_summary(parsed["timing"])
+    duration_sec = to_float(str(manifest.get("duration_sec", math.nan)))
+    odom_outgoing_rate_rows = rate_summary(
+        parsed["odom_outgoing"], "direction", duration_sec
+    )
+    glim_odom_inject_rate_rows = rate_summary(
+        parsed["glim_odom_inject"], "direction", duration_sec
+    )
     injected_cov_rows = injected_belief_covariance_samples(
         parsed["transport"],
         parsed["merge"],
@@ -2339,6 +2625,10 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
     write_dicts_csv(artifacts_dir / "cbs_odom_retries.csv", parsed["odom_retry"])
     write_dicts_csv(artifacts_dir / "cbs_bpsam_odom_add.csv", parsed["bpsam_odom_add"])
     write_dicts_csv(
+        artifacts_dir / "glim_cbs_odom_inject.csv",
+        parsed["glim_odom_inject"],
+    )
+    write_dicts_csv(
         artifacts_dir / "cbs_odom_factor_covariance.csv",
         parsed["odom_factor_covariance"],
     )
@@ -2351,6 +2641,11 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
         artifacts_dir / "cbs_marginalization_graph.csv",
         parsed["marginalization_graph"],
     )
+    write_dicts_csv(artifacts_dir / "kimera_flow.csv", parsed["kimera_flow"])
+    write_dicts_csv(artifacts_dir / "kimera_odom_flow.csv", parsed["kimera_odom_flow"])
+    write_dicts_csv(artifacts_dir / "liorf_odom_flow.csv", parsed["liorf_odom_flow"])
+    write_dicts_csv(artifacts_dir / "glim_odom_flow.csv", parsed["glim_odom_flow"])
+    write_dicts_csv(artifacts_dir / "kimera_timing_rows.csv", parsed["timing"])
     write_dicts_csv(artifacts_dir / "trajectory_metrics.csv", trajectory_rows)
     write_dicts_csv(artifacts_dir / "evo_metrics.csv", evo_rows)
     write_dicts_csv(artifacts_dir / "covariance_summary.csv", cov_rows)
@@ -2389,6 +2684,15 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
         artifacts_dir / "marginalization_graph_summary.csv",
         marginalization_graph_rows,
     )
+    write_dicts_csv(artifacts_dir / "kimera_timing_summary.csv", timing_summary_rows)
+    write_dicts_csv(
+        artifacts_dir / "odom_outgoing_rate_summary.csv",
+        odom_outgoing_rate_rows,
+    )
+    write_dicts_csv(
+        artifacts_dir / "glim_odom_inject_rate_summary.csv",
+        glim_odom_inject_rate_rows,
+    )
     write_dicts_csv(
         artifacts_dir / "injected_belief_covariance_samples.csv",
         injected_cov_rows,
@@ -2409,6 +2713,7 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
         "preinjection_residual_counts": direction_counts(parsed["preinjection_residual"]),
         "belief_odom_counts": direction_counts(parsed["belief_odom"]),
         "odom_outgoing_counts": direction_counts(parsed["odom_outgoing"]),
+        "odom_outgoing_rate_summary": odom_outgoing_rate_rows,
         "odom_match_decisions_by_direction": {
             direction: counter_dict(
                 [row for row in parsed["odom_match"] if row.get("direction") == direction],
@@ -2430,6 +2735,18 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
             )
             for direction in sorted(direction_counts(parsed["bpsam_odom_add"]))
         },
+        "glim_odom_inject_status_by_direction": {
+            direction: counter_dict(
+                [
+                    row
+                    for row in parsed["glim_odom_inject"]
+                    if row.get("direction") == direction
+                ],
+                "status",
+            )
+            for direction in sorted(direction_counts(parsed["glim_odom_inject"]))
+        },
+        "glim_odom_inject_rate_summary": glim_odom_inject_rate_rows,
         "temporary_linearization_residual_counts": direction_counts(
             parsed["temporary_linearization_residual"]
         ),
@@ -2458,6 +2775,7 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
         "kimera_flow_totals": sum_kimera_flow(parsed["kimera_flow"]),
         "kimera_odom_flow_totals": sum_kimera_flow(parsed["kimera_odom_flow"]),
         "liorf_odom_flow_totals": sum_kimera_flow(parsed["liorf_odom_flow"]),
+        "glim_odom_flow_totals": sum_kimera_flow(parsed["glim_odom_flow"]),
         "alignment": parsed["alignment"],
         "trajectory_metrics": trajectory_rows,
         "evo_metrics": evo_rows,
@@ -2473,6 +2791,7 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
         "odom_factor_covariance_summary": odom_factor_covariance_rows,
         "odom_factor_covariance_samples": odom_factor_covariance_sample_rows,
         "marginalization_graph_summary": marginalization_graph_rows,
+        "kimera_timing_summary": timing_summary_rows,
         "injected_belief_covariance_samples": injected_cov_rows,
         "skipped_log_rows": parsed["skipped_rows"],
     }
@@ -2491,6 +2810,7 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
     lines.append(f"- Created: `{summary.get('created_at')}`")
     lines.append(f"- Finished: `{summary.get('finished_at')}`")
     lines.append(f"- Roslaunch return code: `{summary.get('roslaunch_returncode')}`")
+    lines.append(f"- Experiment profile: `{manifest.get('experiment_profile', 'n/a')}`")
     lines.append(f"- Bag: `{launch_args.get('bag_path', 'n/a')}`")
     lines.append(f"- Duration: `{launch_args.get('bag_duration', 'n/a')} s`")
     lines.append(f"- Ground truth: `{manifest.get('ground_truth', 'n/a')}`")
@@ -2568,8 +2888,10 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
             ],
         )
     )
-    lines.append("- `L2K` means LiORF belief received by Kimera.")
-    lines.append("- `K2L` means Kimera belief received by LiORF.\n")
+    lines.append("- `L2K` means LiORF-side belief received by Kimera.")
+    lines.append("- `G2K` means GLIM belief received by Kimera.")
+    lines.append("- `K2L` means Kimera belief sent to the LIO-side receiver in legacy Kimera logs.")
+    lines.append("- `K2G` means Kimera belief injected into GLIM.\n")
     skipped = summary.get("skipped_log_rows", {})
     if skipped:
         lines.append("Malformed CBS log rows skipped during parsing:\n")
@@ -2857,6 +3179,21 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
     if odom_outgoing:
         lines.append("### CBS odometry outgoing rows\n")
         lines.append(markdown_table(["direction", "count"], sorted(odom_outgoing.items())))
+        rate_rows = summary.get("odom_outgoing_rate_summary", [])
+        if rate_rows:
+            lines.append(
+                markdown_table(
+                    ["direction", "count", "approx Hz"],
+                    [
+                        [
+                            row.get("direction", ""),
+                            row.get("count", 0),
+                            row.get("approx_hz_over_bag_duration", math.nan),
+                        ]
+                        for row in rate_rows
+                    ],
+                )
+            )
 
     odom_match_rows = []
     for direction, counts in summary.get("odom_match_decisions_by_direction", {}).items():
@@ -2881,6 +3218,29 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
     if bpsam_odom_rows:
         lines.append("### BPSAM odometry add rows\n")
         lines.append(markdown_table(["direction", "message", "count"], bpsam_odom_rows))
+
+    glim_inject_rows = []
+    for direction, counts in summary.get("glim_odom_inject_status_by_direction", {}).items():
+        for status, count in sorted(counts.items()):
+            glim_inject_rows.append([direction, status, count])
+    if glim_inject_rows:
+        lines.append("### GLIM odometry injections\n")
+        lines.append(markdown_table(["direction", "status", "count"], glim_inject_rows))
+        rate_rows = summary.get("glim_odom_inject_rate_summary", [])
+        if rate_rows:
+            lines.append(
+                markdown_table(
+                    ["direction", "count", "approx Hz"],
+                    [
+                        [
+                            row.get("direction", ""),
+                            row.get("count", 0),
+                            row.get("approx_hz_over_bag_duration", math.nan),
+                        ]
+                        for row in rate_rows
+                    ],
+                )
+            )
 
     odom_factor_cov = summary.get("odom_factor_covariance_summary", [])
     if odom_factor_cov:
@@ -2983,6 +3343,36 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
     if liorf_odom_flow:
         lines.append("### LiORF incoming odometry flow totals\n")
         lines.append(markdown_table(["counter", "sum"], sorted(liorf_odom_flow.items())))
+
+    glim_odom_flow = summary.get("glim_odom_flow_totals", {})
+    if glim_odom_flow:
+        lines.append("### GLIM incoming odometry flow totals\n")
+        lines.append(markdown_table(["counter", "sum"], sorted(glim_odom_flow.items())))
+
+    kimera_timing = summary.get("kimera_timing_summary", [])
+    if kimera_timing:
+        lines.append("## Kimera Timing\n")
+        lines.append(
+            "Rows are parsed from Kimera timing log markers in `roslaunch.log`; "
+            "full raw rows are saved in `parsed/kimera_timing_rows.csv`.\n"
+        )
+        lines.append(
+            markdown_table(
+                ["stage", "metric", "count", "mean ms", "p50 ms", "p95 ms", "max ms"],
+                [
+                    [
+                        row.get("stage", ""),
+                        row.get("metric", ""),
+                        row.get("count", 0),
+                        row.get("mean_ms", math.nan),
+                        row.get("p50_ms", math.nan),
+                        row.get("p95_ms", math.nan),
+                        row.get("max_ms", math.nan),
+                    ]
+                    for row in kimera_timing
+                ],
+            )
+        )
 
     merge_quality = summary.get("merge_quality_summary", [])
     if merge_quality:
@@ -3216,7 +3606,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
     run_parser = subparsers.add_parser("run", help="launch the standard experiment and report it")
     run_parser.add_argument("--workspace", type=Path, default=workspace_root_from_script())
-    run_parser.add_argument("--container-workspace", default="/workspace")
+    run_parser.add_argument("--container-workspace", default=DEFAULT_CONTAINER_WORKSPACE)
     run_parser.add_argument("--container", default=DEFAULT_CONTAINER)
     run_parser.add_argument("--output-root", type=Path, default=None)
     run_parser.add_argument("--name", default="")
@@ -3224,13 +3614,29 @@ def build_arg_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--gt-path", type=Path, default=None)
     run_parser.add_argument("--duration", type=float, default=60.0)
     run_parser.add_argument("--timeout-padding", type=float, default=40.0)
-    run_parser.add_argument("--launch-package", default="kimera_vio_ros")
-    run_parser.add_argument("--launch-file", default="s3e_alpha_liorf_kimera_experiment.launch")
+    run_parser.add_argument(
+        "--experiment-profile",
+        choices=sorted(EXPERIMENT_PROFILES),
+        default="liorf_kimera",
+    )
+    run_parser.add_argument("--launch-package", default=None)
+    run_parser.add_argument("--launch-file", default=None)
     run_parser.add_argument("--rerun-host", default=DEFAULT_RERUN_HOST)
     run_parser.add_argument("--extra-arg", action="append", default=[])
+    run_parser.add_argument(
+        "--trajectory-topic",
+        action="append",
+        default=[],
+        help="Record an additional or replacement odometry topic as label=/topic.",
+    )
     run_parser.add_argument("--clean-start", action=argparse.BooleanOptionalAction, default=True)
     run_parser.add_argument("--record-trajectories", action=argparse.BooleanOptionalAction, default=True)
     run_parser.add_argument("--enable-cbs-bridge", action=argparse.BooleanOptionalAction, default=True)
+    run_parser.add_argument(
+        "--shutdown-on-bag-finish",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+    )
     run_parser.add_argument("--use-kimera-rviz", action=argparse.BooleanOptionalAction, default=True)
     run_parser.add_argument("--use-liorf-rviz", action=argparse.BooleanOptionalAction, default=False)
     run_parser.add_argument("--kimera-visualize", action=argparse.BooleanOptionalAction, default=True)
