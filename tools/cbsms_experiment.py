@@ -83,16 +83,27 @@ ROW_MARKERS = (
     "CBS_ODOM_OUTGOING_ROW",
     "CBS_ODOM_MATCH_ROW_L2K",
     "CBS_ODOM_MATCH_ROW_K2L",
+    "CBS_ODOM_MATCH_ROW_G2K",
+    "CBS_ODOM_MATCH_ROW_K2G",
     "CBS_ODOM_RETRY_ROW_L2K",
     "CBS_ODOM_RETRY_ROW_K2L",
+    "CBS_ODOM_RETRY_ROW_G2K",
+    "CBS_ODOM_RETRY_ROW_K2G",
     "CBS_BPSAM_ODOM_ADD_ROW_L2K",
     "CBS_BPSAM_ODOM_ADD_ROW_K2L",
+    "CBS_BPSAM_ODOM_ADD_ROW_G2K",
+    "CBS_BPSAM_ODOM_ADD_ROW_K2G",
     "CBS_ODOM_PREINJECTION_RESIDUAL_ROW",
     "CBS_ODOM_FACTOR_COVARIANCE_ROW",
     "CBS_TEMPORARY_LINEARIZATION_RESIDUAL_ROW",
     "CBS_KIMERA_OUTGOING_PROVENANCE_ROW",
     "CBS_MARGINALIZATION_GRAPH_ROW",
     "GLIM_CBS_ODOM_INJECT_ROW",
+    "GLIM_ROS_INPUT_TIMING_ROW",
+    "GLIM_ASYNC_ODOM_TIMING_ROW",
+    "GLIM_ODOM_IMU_TIMING_ROW",
+    "GLIM_GPU_TIMING_ROW",
+    "GLIM_CBS_TIMING_ROW",
     "KIMERA_BACKEND_SPINONCE_TIMING_ROW",
     "KIMERA_CBS_OUTGOING_TIMING_ROW",
     "KIMERA_OPTIMIZE_TIMING_ROW",
@@ -642,6 +653,7 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
     provenance_rows: List[Dict[str, Any]] = []
     marginalization_graph_rows: List[Dict[str, Any]] = []
     timing_rows: List[Dict[str, Any]] = []
+    glim_timing_rows: List[Dict[str, Any]] = []
     kimera_flow_rows: List[Dict[str, int]] = []
     kimera_odom_flow_rows: List[Dict[str, int]] = []
     liorf_odom_flow_rows: List[Dict[str, int]] = []
@@ -808,6 +820,13 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
                             continue
                         if marker == "GLIM_CBS_ODOM_INJECT_ROW" and len(row) < 7:
                             skipped_rows[f"{marker}:malformed_glim_odom_inject"] += 1
+                            continue
+                        if marker.startswith("GLIM_") and marker.endswith("_TIMING_ROW"):
+                            timing = parse_glim_timing_row(row)
+                            if timing:
+                                glim_timing_rows.append(timing)
+                            else:
+                                skipped_rows[f"{marker}:malformed_glim_timing"] += 1
                             continue
 
                         if marker.startswith("CBS_TRANSPORT_ROW"):
@@ -1132,23 +1151,31 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
                                 }
                             )
                         elif marker.startswith("CBS_ODOM_MATCH_ROW"):
-                            odom_match_rows.append(
-                                {
-                                    "direction": row[0].replace("CBS_ODOM_MATCH_ROW_", ""),
-                                    "sender_edge": row[1],
-                                    "from_stamp_sec": to_float(row[2]),
-                                    "to_stamp_sec": to_float(row[3]),
-                                    "receiver_edge": row[4],
-                                    "from_best_stamp_sec": to_float(row[5]),
-                                    "to_best_stamp_sec": to_float(row[6]),
-                                    "from_abs_dt": to_float(row[7]),
-                                    "to_abs_dt": to_float(row[8]),
-                                    "tolerance_sec": to_float(row[9]),
-                                    "from_reason": row[10],
-                                    "to_reason": row[11],
-                                    "decision": row[12],
-                                }
-                            )
+                            parsed_row = {
+                                "direction": row[0].replace("CBS_ODOM_MATCH_ROW_", ""),
+                                "sender_edge": row[1],
+                                "from_stamp_sec": to_float(row[2]),
+                                "to_stamp_sec": to_float(row[3]),
+                                "receiver_edge": row[4],
+                                "from_best_stamp_sec": to_float(row[5]),
+                                "to_best_stamp_sec": to_float(row[6]),
+                                "from_abs_dt": to_float(row[7]),
+                                "to_abs_dt": to_float(row[8]),
+                                "tolerance_sec": to_float(row[9]),
+                                "from_reason": row[10],
+                                "to_reason": row[11],
+                                "decision": row[12],
+                            }
+                            if len(row) >= 17:
+                                parsed_row.update(
+                                    {
+                                        "sender_dt": to_float(row[13]),
+                                        "receiver_dt": to_float(row[14]),
+                                        "duration_error": to_float(row[15]),
+                                        "duration_ratio": to_float(row[16]),
+                                    }
+                                )
+                            odom_match_rows.append(parsed_row)
                         elif marker.startswith("CBS_ODOM_RETRY_ROW"):
                             odom_retry_rows.append(
                                 {
@@ -1332,6 +1359,7 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
         "provenance": provenance_rows,
         "marginalization_graph": marginalization_graph_rows,
         "timing": timing_rows,
+        "glim_timing": glim_timing_rows,
         "kimera_flow": kimera_flow_rows,
         "kimera_odom_flow": kimera_odom_flow_rows,
         "liorf_odom_flow": liorf_odom_flow_rows,
@@ -1415,6 +1443,145 @@ def parse_kimera_timing_row(row: List[str]) -> Dict[str, Any]:
             "factor_graph_factor_count": to_int(row[8]),
             "factor_graph_enabled": to_int(row[9]),
         }
+    return {}
+
+
+def parse_glim_timing_row(row: List[str]) -> Dict[str, Any]:
+    marker = row[0] if row else ""
+    common = {"marker": marker}
+    if marker == "GLIM_ROS_INPUT_TIMING_ROW" and len(row) >= 13:
+        return {
+            **common,
+            "stage": "ros_input",
+            "stamp": to_float(row[1]),
+            "raw_points": to_int(row[2]),
+            "preprocessed_points": to_int(row[3]),
+            "time_keeper_ms": to_float(row[4]),
+            "preprocess_ms": to_float(row[5]),
+            "workload_wait_ms": to_float(row[6]),
+            "enqueue_ms": to_float(row[7]),
+            "total_ms": to_float(row[8]),
+            "workload_before_wait": to_int(row[9]),
+            "workload_after_wait": to_int(row[10]),
+            "wait_loops": to_int(row[11]),
+            "skipped": to_int(row[12]),
+        }
+    if marker == "GLIM_ASYNC_ODOM_TIMING_ROW" and len(row) >= 14:
+        return {
+            **common,
+            "stage": "async_odom",
+            "stamp": to_float(row[1]),
+            "scan_end_time": to_float(row[2]),
+            "last_imu_time": to_float(row[3]),
+            "raw_queue": to_int(row[4]),
+            "imu_batch": to_int(row[5]),
+            "frame_batch": to_int(row[6]),
+            "imu_wait_ms": to_float(row[7]),
+            "odom_insert_ms": to_float(row[8]),
+            "total_ms": to_float(row[9]),
+            "internal_queue_after": to_int(row[10]),
+            "produced_state": to_int(row[11]),
+            "marginalized_count": to_int(row[12]),
+            "status": row[13],
+        }
+    if marker == "GLIM_ODOM_IMU_TIMING_ROW" and len(row) >= 26:
+        return {
+            **common,
+            "stage": "odom_imu",
+            "stamp": to_float(row[1]),
+            "frame_id": to_int(row[2]),
+            "points": to_int(row[3]),
+            "num_imu_integrated": to_int(row[4]),
+            "new_factors": to_int(row[5]),
+            "active_frames": to_int(row[6]),
+            "marginalized_frames": to_int(row[7]),
+            "state_lookup_ms": to_float(row[8]),
+            "inter_scan_imu_ms": to_float(row[9]),
+            "imu_factor_ms": to_float(row[10]),
+            "intra_scan_imu_ms": to_float(row[11]),
+            "deskew_ms": to_float(row[12]),
+            "point_covariance_ms": to_float(row[13]),
+            "cpu_frame_ms": to_float(row[14]),
+            "create_frame_ms": to_float(row[15]),
+            "create_factors_ms": to_float(row[16]),
+            "pre_smoother_callback_ms": to_float(row[17]),
+            "smoother_update_ms": to_float(row[18]),
+            "post_smoother_callback_ms": to_float(row[19]),
+            "marginalization_ms": to_float(row[20]),
+            "update_frames_ms": to_float(row[21]),
+            "imu_validation_ms": to_float(row[22]),
+            "update_callbacks_ms": to_float(row[23]),
+            "total_ms": to_float(row[24]),
+            "status": row[25],
+        }
+    if marker == "GLIM_GPU_TIMING_ROW" and len(row) >= 18:
+        substage = row[1]
+        return {
+            **common,
+            "stage": f"gpu_{substage}",
+            "substage": substage,
+            "stamp": to_float(row[2]),
+            "frame_id": to_int(row[3]),
+            "points": to_int(row[4]),
+            "keyframes_before": to_int(row[5]),
+            "keyframes_after": to_int(row[6]),
+            "median_ms": to_float(row[7]),
+            "clone_ms": to_float(row[8]),
+            "voxelmap_ms": to_float(row[9]),
+            "factor_create_ms": to_float(row[10]),
+            "keyframe_update_ms": to_float(row[11]),
+            "total_ms": to_float(row[12]),
+            "voxelmap_count": to_int(row[13]),
+            "binary_factors": to_int(row[14]),
+            "unary_factors": to_int(row[15]),
+            "overlap_calls": to_int(row[16]),
+            "status": row[17],
+        }
+    if marker == "GLIM_CBS_TIMING_ROW" and len(row) >= 18:
+        substage = row[1]
+        parsed: Dict[str, Any] = {
+            **common,
+            "stage": f"cbs_{substage}",
+            "substage": substage,
+            "last_pose_index": to_int(row[2]),
+            "matched": to_int(row[3]),
+            "injected": to_int(row[4]),
+            "duplicate": to_int(row[5]),
+            "rejected": to_int(row[6]),
+            "pending": to_int(row[7]),
+            "pending_oldest_age_sec": to_float(row[8]),
+            "update_timestamps_ms": to_float(row[9]),
+            "consume_incoming_ms": to_float(row[10]),
+            "inject_loop_ms": to_float(row[11]),
+            "sidecar_update_ms": to_float(row[12]),
+            "publish_odometry_ms": to_float(row[13]),
+            "outgoing_ms": to_float(row[14]),
+            "scalar_ms": to_float(row[15]),
+            "outgoing_count": to_int(row[16]),
+            "total_ms": to_float(row[17]),
+        }
+        if substage == "publish_outgoing" and len(row) >= 24:
+            parsed.update(
+                {
+                    "request_build_ms": to_float(row[18]),
+                    "set_marginalization_graph_ms": to_float(row[19]),
+                    "get_odometry_beliefs_ms": to_float(row[20]),
+                    "message_build_ms": to_float(row[21]),
+                    "publish_ms": to_float(row[22]),
+                    "request_keys": to_int(row[23]),
+                }
+            )
+        elif substage == "publish_odometry" and len(row) >= 23:
+            parsed.update(
+                {
+                    "estimate_ms": to_float(row[18]),
+                    "marginal_covariance_ms": to_float(row[19]),
+                    "odom_publish_ms": to_float(row[20]),
+                    "rerun_ms": to_float(row[21]),
+                    "covariance_ok": to_int(row[22]),
+                }
+            )
+        return parsed
     return {}
 
 
@@ -2578,6 +2745,7 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
         parsed["marginalization_graph"]
     )
     timing_summary_rows = timing_summary(parsed["timing"])
+    glim_timing_summary_rows = timing_summary(parsed["glim_timing"])
     duration_sec = to_float(str(manifest.get("duration_sec", math.nan)))
     odom_outgoing_rate_rows = rate_summary(
         parsed["odom_outgoing"], "direction", duration_sec
@@ -2646,6 +2814,7 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
     write_dicts_csv(artifacts_dir / "liorf_odom_flow.csv", parsed["liorf_odom_flow"])
     write_dicts_csv(artifacts_dir / "glim_odom_flow.csv", parsed["glim_odom_flow"])
     write_dicts_csv(artifacts_dir / "kimera_timing_rows.csv", parsed["timing"])
+    write_dicts_csv(artifacts_dir / "glim_timing_rows.csv", parsed["glim_timing"])
     write_dicts_csv(artifacts_dir / "trajectory_metrics.csv", trajectory_rows)
     write_dicts_csv(artifacts_dir / "evo_metrics.csv", evo_rows)
     write_dicts_csv(artifacts_dir / "covariance_summary.csv", cov_rows)
@@ -2685,6 +2854,7 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
         marginalization_graph_rows,
     )
     write_dicts_csv(artifacts_dir / "kimera_timing_summary.csv", timing_summary_rows)
+    write_dicts_csv(artifacts_dir / "glim_timing_summary.csv", glim_timing_summary_rows)
     write_dicts_csv(
         artifacts_dir / "odom_outgoing_rate_summary.csv",
         odom_outgoing_rate_rows,
@@ -2792,6 +2962,7 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
         "odom_factor_covariance_samples": odom_factor_covariance_sample_rows,
         "marginalization_graph_summary": marginalization_graph_rows,
         "kimera_timing_summary": timing_summary_rows,
+        "glim_timing_summary": glim_timing_summary_rows,
         "injected_belief_covariance_samples": injected_cov_rows,
         "skipped_log_rows": parsed["skipped_rows"],
     }
@@ -3160,8 +3331,10 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
     direction_titles = {
         "L2K": "Kimera receiving LiORF beliefs (`L2K`)",
         "K2L": "LiORF receiving Kimera beliefs (`K2L`)",
+        "G2K": "Kimera receiving GLIM beliefs (`G2K`)",
+        "K2G": "GLIM receiving Kimera beliefs (`K2G`)",
     }
-    for direction in ("L2K", "K2L"):
+    for direction in ("L2K", "K2L", "G2K", "K2G"):
         counts = merge_status.get(direction, {})
         if not counts:
             continue
@@ -3289,7 +3462,7 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
             "First 30 inserted CBS odometry factors per direction. Full rows "
             "are saved in `parsed/odom_factor_covariance_samples.csv`.\n"
         )
-        for direction in ("L2K", "K2L"):
+        for direction in ("L2K", "K2L", "G2K", "K2G"):
             rows = [
                 row for row in odom_factor_cov_samples
                 if row.get("direction") == direction
@@ -3370,6 +3543,36 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
                         row.get("max_ms", math.nan),
                     ]
                     for row in kimera_timing
+                ],
+            )
+        )
+
+    glim_timing = summary.get("glim_timing_summary", [])
+    if glim_timing:
+        lines.append("## GLIM Timing\n")
+        lines.append(
+            "Rows are parsed from GLIM timing log markers in `roslaunch.log`; "
+            "full raw rows are saved in `parsed/glim_timing_rows.csv`.\n"
+        )
+        rows = sorted(
+            glim_timing,
+            key=lambda row: float(row.get("mean_ms", 0.0) or 0.0),
+            reverse=True,
+        )
+        lines.append(
+            markdown_table(
+                ["stage", "metric", "count", "mean ms", "p50 ms", "p95 ms", "max ms"],
+                [
+                    [
+                        row.get("stage", ""),
+                        row.get("metric", ""),
+                        row.get("count", 0),
+                        row.get("mean_ms", math.nan),
+                        row.get("p50_ms", math.nan),
+                        row.get("p95_ms", math.nan),
+                        row.get("max_ms", math.nan),
+                    ]
+                    for row in rows
                 ],
             )
         )
@@ -3506,7 +3709,7 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
             "update. Full diagonal vectors are saved in "
             "`parsed/injected_belief_covariance_samples.csv`.\n"
         )
-        for direction in ("L2K", "K2L"):
+        for direction in ("L2K", "K2L", "G2K", "K2G"):
             rows = [row for row in injected_cov if row.get("direction") == direction]
             if not rows:
                 continue
