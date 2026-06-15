@@ -112,6 +112,8 @@ ROW_MARKERS = (
     "CBS_ODOM_PREINJECTION_RESIDUAL_ROW",
     "CBS_ODOM_TEMPORARY_POSTSOLVE_RESIDUAL_ROW",
     "CBS_ODOM_FACTOR_COVARIANCE_ROW",
+    "CBS_HEALTH_AWARE_SENDER_ROW",
+    "CBS_HEALTH_AWARE_NIS_ROW",
     "CBS_TEMPORARY_LINEARIZATION_RESIDUAL_ROW",
     "CBS_KIMERA_OUTGOING_PROVENANCE_ROW",
     "CBS_MARGINALIZATION_GRAPH_ROW",
@@ -671,6 +673,8 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
     bpsam_odom_add_rows: List[Dict[str, Any]] = []
     glim_odom_inject_rows: List[Dict[str, Any]] = []
     odom_factor_covariance_rows: List[Dict[str, Any]] = []
+    health_sender_rows: List[Dict[str, Any]] = []
+    health_nis_rows: List[Dict[str, Any]] = []
     odom_temporary_postsolve_residual_rows: List[Dict[str, Any]] = []
     temporary_linearization_residual_rows: List[Dict[str, Any]] = []
     provenance_rows: List[Dict[str, Any]] = []
@@ -837,6 +841,12 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
                             continue
                         if marker == "CBS_ODOM_FACTOR_COVARIANCE_ROW" and len(row) < 21:
                             skipped_rows[f"{marker}:malformed_odom_factor_covariance"] += 1
+                            continue
+                        if marker == "CBS_HEALTH_AWARE_SENDER_ROW" and len(row) < 17:
+                            skipped_rows[f"{marker}:malformed_health_sender"] += 1
+                            continue
+                        if marker == "CBS_HEALTH_AWARE_NIS_ROW" and len(row) < 18:
+                            skipped_rows[f"{marker}:malformed_health_nis"] += 1
                             continue
                         if marker == "CBS_TEMPORARY_LINEARIZATION_RESIDUAL_ROW" and (
                             len(row) < 23 or row[5] not in PREINJECTION_RESIDUAL_ACTIONS
@@ -1294,6 +1304,51 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
                                     "asym_relative": to_float(row[20]),
                                 }
                             )
+                        elif marker == "CBS_HEALTH_AWARE_SENDER_ROW":
+                            health_sender_rows.append(
+                                {
+                                    "direction": row[1],
+                                    "sender_agent": row[2],
+                                    "receiver_agent": row[3],
+                                    "from_key": row[4],
+                                    "to_key": row[5],
+                                    "belief_key": f"{row[4]}->{row[5]}",
+                                    "enabled": to_int(row[6]),
+                                    "status": row[7],
+                                    "raw_rel_trace": to_float(row[8]),
+                                    "abs_trace": to_float(row[9]),
+                                    "u": to_float(row[10]),
+                                    "u0": to_float(row[11]),
+                                    "g_det": to_float(row[12]),
+                                    "g_tr": to_float(row[13]),
+                                    "alpha_health": to_float(row[14]),
+                                    "floor_trace": to_float(row[15]),
+                                    "final_trace": to_float(row[16]),
+                                }
+                            )
+                        elif marker == "CBS_HEALTH_AWARE_NIS_ROW":
+                            health_nis_rows.append(
+                                {
+                                    "direction": row[1],
+                                    "receiver_agent": row[2],
+                                    "source_agent": row[3],
+                                    "from_key": row[4],
+                                    "to_key": row[5],
+                                    "belief_key": f"{row[4]}->{row[5]}",
+                                    "enabled": to_int(row[6]),
+                                    "status": row[7],
+                                    "residual_norm": to_float(row[8]),
+                                    "rot_norm": to_float(row[9]),
+                                    "trans_norm": to_float(row[10]),
+                                    "sender_trace": to_float(row[11]),
+                                    "receiver_trace": to_float(row[12]),
+                                    "s_trace": to_float(row[13]),
+                                    "nu": to_float(row[14]),
+                                    "chi2": to_float(row[15]),
+                                    "alpha_cons": to_float(row[16]),
+                                    "final_trace": to_float(row[17]),
+                                }
+                            )
                         elif marker == "CBS_TEMPORARY_LINEARIZATION_RESIDUAL_ROW":
                             temporary_linearization_residual_rows.append(
                                 {
@@ -1404,6 +1459,8 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
         "bpsam_odom_add": bpsam_odom_add_rows,
         "glim_odom_inject": glim_odom_inject_rows,
         "odom_factor_covariance": odom_factor_covariance_rows,
+        "health_sender": health_sender_rows,
+        "health_nis": health_nis_rows,
         "odom_temporary_postsolve_residual": odom_temporary_postsolve_residual_rows,
         "temporary_linearization_residual": temporary_linearization_residual_rows,
         "provenance": provenance_rows,
@@ -2551,6 +2608,74 @@ def odom_factor_covariance_summary(rows_in: List[Dict[str, Any]]) -> List[Dict[s
     return rows
 
 
+def health_sender_summary(rows_in: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    by_direction_status: Dict[Tuple[str, str], List[Dict[str, Any]]] = defaultdict(list)
+    for row in rows_in:
+        by_direction_status[
+            (str(row.get("direction", "")), str(row.get("status", "")))
+        ].append(row)
+
+    for (direction, status), values in sorted(by_direction_status.items()):
+        alphas = [row.get("alpha_health", math.nan) for row in values]
+        raw_traces = [row.get("raw_rel_trace", math.nan) for row in values]
+        final_traces = [row.get("final_trace", math.nan) for row in values]
+        u_values = [row.get("u", math.nan) for row in values]
+        u0_values = [row.get("u0", math.nan) for row in values]
+        g_det_values = [row.get("g_det", math.nan) for row in values]
+        rows.append(
+            {
+                "direction": direction,
+                "status": status,
+                "count": len(values),
+                "alpha_p50": percentile(alphas, 0.50),
+                "alpha_p95": percentile(alphas, 0.95),
+                "alpha_max": numeric_stats(alphas)["max"],
+                "raw_rel_trace_p50": percentile(raw_traces, 0.50),
+                "raw_rel_trace_p95": percentile(raw_traces, 0.95),
+                "final_trace_p50": percentile(final_traces, 0.50),
+                "final_trace_p95": percentile(final_traces, 0.95),
+                "u_p95": percentile(u_values, 0.95),
+                "u0_p50": percentile(u0_values, 0.50),
+                "g_det_p95": percentile(g_det_values, 0.95),
+            }
+        )
+    return rows
+
+
+def health_nis_summary(rows_in: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    by_direction_status: Dict[Tuple[str, str], List[Dict[str, Any]]] = defaultdict(list)
+    for row in rows_in:
+        by_direction_status[
+            (str(row.get("direction", "")), str(row.get("status", "")))
+        ].append(row)
+
+    for (direction, status), values in sorted(by_direction_status.items()):
+        nus = [row.get("nu", math.nan) for row in values]
+        alphas = [row.get("alpha_cons", math.nan) for row in values]
+        residuals = [row.get("residual_norm", math.nan) for row in values]
+        trans = [row.get("trans_norm", math.nan) for row in values]
+        final_traces = [row.get("final_trace", math.nan) for row in values]
+        rows.append(
+            {
+                "direction": direction,
+                "status": status,
+                "count": len(values),
+                "nu_p50": percentile(nus, 0.50),
+                "nu_p95": percentile(nus, 0.95),
+                "nu_max": numeric_stats(nus)["max"],
+                "alpha_cons_p50": percentile(alphas, 0.50),
+                "alpha_cons_p95": percentile(alphas, 0.95),
+                "alpha_cons_max": numeric_stats(alphas)["max"],
+                "residual_p95": percentile(residuals, 0.95),
+                "trans_p95": percentile(trans, 0.95),
+                "final_trace_p95": percentile(final_traces, 0.95),
+            }
+        )
+    return rows
+
+
 def odom_factor_covariance_samples(
     rows_in: List[Dict[str, Any]],
     sample_limit: int = 30,
@@ -2790,6 +2915,8 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
     odom_factor_covariance_rows = odom_factor_covariance_summary(
         parsed["odom_factor_covariance"]
     )
+    health_sender_rows = health_sender_summary(parsed["health_sender"])
+    health_nis_rows = health_nis_summary(parsed["health_nis"])
     odom_factor_covariance_sample_rows = odom_factor_covariance_samples(
         parsed["odom_factor_covariance"],
         sample_limit=30,
@@ -2858,6 +2985,14 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
         parsed["odom_factor_covariance"],
     )
     write_dicts_csv(
+        artifacts_dir / "cbs_health_sender.csv",
+        parsed["health_sender"],
+    )
+    write_dicts_csv(
+        artifacts_dir / "cbs_health_nis.csv",
+        parsed["health_nis"],
+    )
+    write_dicts_csv(
         artifacts_dir / "cbs_temporary_linearization_residuals.csv",
         parsed["temporary_linearization_residual"],
     )
@@ -2907,6 +3042,14 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
         odom_factor_covariance_rows,
     )
     write_dicts_csv(
+        artifacts_dir / "cbs_health_sender_summary.csv",
+        health_sender_rows,
+    )
+    write_dicts_csv(
+        artifacts_dir / "cbs_health_nis_summary.csv",
+        health_nis_rows,
+    )
+    write_dicts_csv(
         artifacts_dir / "odom_factor_covariance_samples.csv",
         odom_factor_covariance_sample_rows,
     )
@@ -2944,6 +3087,8 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
         "preinjection_residual_counts": direction_counts(parsed["preinjection_residual"]),
         "belief_odom_counts": direction_counts(parsed["belief_odom"]),
         "odom_outgoing_counts": direction_counts(parsed["odom_outgoing"]),
+        "health_sender_counts": direction_counts(parsed["health_sender"]),
+        "health_nis_counts": direction_counts(parsed["health_nis"]),
         "odom_outgoing_rate_summary": odom_outgoing_rate_rows,
         "odom_match_decisions_by_direction": {
             direction: counter_dict(
@@ -3021,6 +3166,8 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
         "belief_odom_summary": belief_odom_rows,
         "temporary_linearization_residual_summary": temporary_linearization_residual_rows,
         "odom_factor_covariance_summary": odom_factor_covariance_rows,
+        "health_sender_summary": health_sender_rows,
+        "health_nis_summary": health_nis_rows,
         "odom_factor_covariance_samples": odom_factor_covariance_sample_rows,
         "marginalization_graph_summary": marginalization_graph_rows,
         "kimera_timing_summary": timing_summary_rows,
@@ -3558,6 +3705,87 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
                         row.get("asym_relative_max", math.nan),
                     ]
                     for row in odom_factor_cov
+                ],
+            )
+        )
+
+    health_sender = summary.get("health_sender_summary", [])
+    if health_sender:
+        lines.append("### Health-aware sender scaling\n")
+        lines.append(
+            "These rows summarize sender-side covariance scaling. "
+            "`alpha > 1` means the outgoing relative belief was weakened.\n"
+        )
+        lines.append(
+            markdown_table(
+                [
+                    "direction",
+                    "status",
+                    "count",
+                    "alpha p50",
+                    "alpha p95",
+                    "alpha max",
+                    "raw trace p95",
+                    "final trace p95",
+                    "u p95",
+                    "g_det p95",
+                ],
+                [
+                    [
+                        row.get("direction", ""),
+                        row.get("status", ""),
+                        row.get("count", 0),
+                        row.get("alpha_p50", math.nan),
+                        row.get("alpha_p95", math.nan),
+                        row.get("alpha_max", math.nan),
+                        row.get("raw_rel_trace_p95", math.nan),
+                        row.get("final_trace_p95", math.nan),
+                        row.get("u_p95", math.nan),
+                        row.get("g_det_p95", math.nan),
+                    ]
+                    for row in health_sender
+                ],
+            )
+        )
+
+    health_nis = summary.get("health_nis_summary", [])
+    if health_nis:
+        lines.append("### Health-aware receiver NIS\n")
+        lines.append(
+            "These rows summarize receiver-side innovation checks. "
+            "`alpha_cons > 1` means the incoming factor covariance was inflated "
+            "because the relative-pose residual was larger than expected.\n"
+        )
+        lines.append(
+            markdown_table(
+                [
+                    "direction",
+                    "status",
+                    "count",
+                    "nu p50",
+                    "nu p95",
+                    "nu max",
+                    "alpha p50",
+                    "alpha p95",
+                    "alpha max",
+                    "trans p95",
+                    "final trace p95",
+                ],
+                [
+                    [
+                        row.get("direction", ""),
+                        row.get("status", ""),
+                        row.get("count", 0),
+                        row.get("nu_p50", math.nan),
+                        row.get("nu_p95", math.nan),
+                        row.get("nu_max", math.nan),
+                        row.get("alpha_cons_p50", math.nan),
+                        row.get("alpha_cons_p95", math.nan),
+                        row.get("alpha_cons_max", math.nan),
+                        row.get("trans_p95", math.nan),
+                        row.get("final_trace_p95", math.nan),
+                    ]
+                    for row in health_nis
                 ],
             )
         )
