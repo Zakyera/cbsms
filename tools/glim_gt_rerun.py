@@ -145,24 +145,25 @@ def log_static_scene(
 
     rr.log(
         "world/ground_truth/trajectory",
-        rr.LineStrips3D([gt_xyz], colors=[0, 220, 80, 255], radii=0.05),
+        rr.LineStrips3D([gt_xyz], colors=[0, 220, 80, 255], radii=args.line_radius),
         static=True,
     )
     rr.log(
         "world/glim_aligned/trajectory",
-        rr.LineStrips3D([glim_xyz], colors=[255, 170, 0, 255], radii=0.05),
+        rr.LineStrips3D([glim_xyz], colors=[255, 170, 0, 255], radii=args.line_radius),
         static=True,
     )
-    rr.log(
-        "world/ground_truth/samples",
-        rr.Points3D(gt_xyz, colors=[0, 220, 80, 180], radii=0.10),
-        static=True,
-    )
-    rr.log(
-        "world/glim_aligned/samples",
-        rr.Points3D(glim_xyz, colors=[255, 170, 0, 160], radii=0.07),
-        static=True,
-    )
+    if not args.hide_samples:
+        rr.log(
+            "world/ground_truth/samples",
+            rr.Points3D(gt_xyz, colors=[0, 220, 80, 180], radii=args.gt_sample_radius),
+            static=True,
+        )
+        rr.log(
+            "world/glim_aligned/samples",
+            rr.Points3D(glim_xyz, colors=[255, 170, 0, 160], radii=args.glim_sample_radius),
+            static=True,
+        )
 
     rmse = math.sqrt(float(np.mean(errors * errors))) if len(errors) else float("nan")
     mean = float(np.mean(errors)) if len(errors) else float("nan")
@@ -171,7 +172,7 @@ def log_static_scene(
 
     summary = "\n".join(
         [
-            "# GLIM vs S3E Ground Truth",
+            f"# {args.title}",
             "",
             f"GLIM poses: {len(glim_xyz)}",
             f"GT poses: {len(gt_xyz)}",
@@ -262,6 +263,39 @@ def parse_args() -> argparse.Namespace:
         default=600,
         help="Max animated frames to log into Rerun",
     )
+    parser.add_argument(
+        "--static-only",
+        action="store_true",
+        help="Only log full trajectories; skip animated current-pose/path overlays",
+    )
+    parser.add_argument(
+        "--hide-samples",
+        action="store_true",
+        help="Only log trajectory lines; hide per-pose sample points",
+    )
+    parser.add_argument(
+        "--line-radius",
+        type=float,
+        default=0.05,
+        help="Trajectory line radius in scene units",
+    )
+    parser.add_argument(
+        "--gt-sample-radius",
+        type=float,
+        default=0.10,
+        help="Ground-truth sample point radius in scene units",
+    )
+    parser.add_argument(
+        "--glim-sample-radius",
+        type=float,
+        default=0.07,
+        help="GLIM sample point radius in scene units",
+    )
+    parser.add_argument(
+        "--title",
+        default="GLIM vs Ground Truth",
+        help="Markdown title shown in the Rerun summary panel",
+    )
     return parser.parse_args()
 
 
@@ -316,7 +350,8 @@ def main() -> None:
         rr.connect_grpc(args.connect)
 
     log_static_scene(gt_view, glim_view, errors, args, len(glim_indices))
-    log_time_series(glim.times, gt_view, glim_view, args.max_frames)
+    if not args.static_only:
+        log_time_series(glim.times, gt_view, glim_view, args.max_frames)
 
 
 if __name__ == "__main__":

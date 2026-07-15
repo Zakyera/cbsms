@@ -29,12 +29,71 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 DEFAULT_CONTAINER = "cbsms_ws"
 DEFAULT_CONTAINER_WORKSPACE = "/workspace/cbs_gtsam4.3"
+DEFAULT_CLEAN_GLIM_CONTAINER_WORKSPACE = (
+    DEFAULT_CONTAINER_WORKSPACE + "/clean_glim_ws"
+)
 DEFAULT_BAG_PATH = (
     DEFAULT_CONTAINER_WORKSPACE
     + "/src/datasets/S3E/S3E_Square_1/S3E_Square_1_alpha_ros1.bag"
 )
 DEFAULT_GT_RELATIVE = "src/datasets/S3E/S3E_Square_1/alpha_gt.txt"
 DEFAULT_RERUN_HOST = "rerun+http://172.17.0.1:9876/proxy"
+CBS_MODE_PRESETS: Dict[str, Dict[str, str]] = {
+    "off": {
+        "enable_cbs_bridge": "false",
+        "cbs_health_aware_enable": "false",
+        "cbs_health_relative_trust_enable": "false",
+        "cbs_health_relative_trust_calibrated_enable": "false",
+        "glim_cbs_wait_for_receiver_covariance_linearization_enable": "false",
+    },
+    "raw_cbs": {
+        "enable_cbs_bridge": "true",
+        "cbs_health_aware_enable": "false",
+        "cbs_health_relative_trust_enable": "false",
+        "cbs_health_relative_trust_calibrated_enable": "false",
+        "glim_cbs_wait_for_receiver_covariance_linearization_enable": "false",
+    },
+    "health_default": {
+        "enable_cbs_bridge": "true",
+        "cbs_health_aware_enable": "true",
+        "cbs_health_sender_enable": "true",
+        "cbs_health_receiver_nis_enable": "true",
+        "cbs_health_relative_trust_enable": "false",
+        "cbs_health_relative_trust_calibrated_enable": "false",
+        "glim_cbs_wait_for_receiver_covariance_linearization_enable": "false",
+    },
+    "health_reltrust": {
+        "enable_cbs_bridge": "true",
+        "cbs_health_aware_enable": "true",
+        "cbs_health_sender_enable": "true",
+        "cbs_health_receiver_nis_enable": "true",
+        "cbs_health_relative_trust_enable": "true",
+        "cbs_health_relative_trust_calibrated_enable": "false",
+        "glim_cbs_wait_for_receiver_covariance_linearization_enable": "false",
+    },
+    "health_reltrust_calibrated": {
+        "enable_cbs_bridge": "true",
+        "cbs_health_aware_enable": "true",
+        "cbs_health_sender_enable": "true",
+        "cbs_health_receiver_nis_enable": "true",
+        "cbs_health_relative_trust_enable": "true",
+        "cbs_health_relative_trust_calibrated_enable": "true",
+        "glim_cbs_wait_for_receiver_covariance_linearization_enable": "false",
+    },
+    "health_reltrust_calibrated_waitlin": {
+        "enable_cbs_bridge": "true",
+        "cbs_health_aware_enable": "true",
+        "cbs_health_sender_enable": "true",
+        "cbs_health_receiver_nis_enable": "true",
+        "cbs_health_relative_trust_enable": "true",
+        "cbs_health_relative_trust_calibrated_enable": "true",
+        "glim_cbs_wait_for_receiver_covariance_linearization_enable": "true",
+    },
+}
+CBS_MODE_PRESET_PROFILES = {
+    "glim_kimera",
+    "m3dgr_glim_kimera",
+}
 CORE_REPOS = [
     "cbsms",
     "cbs",
@@ -60,6 +119,261 @@ EXPERIMENT_PROFILES: Dict[str, Dict[str, Any]] = {
         "trajectory_topics": {
             "kimera": "/kimera_vio_ros/odometry",
             "glim": "/glim/cbs/odometry",
+        },
+    },
+    "glim_only": {
+        "launch_package": "glim_ros",
+        "launch_file": "boreas_glim_only_experiment.launch",
+        "trajectory_topics": {
+            "glim": "/glim/cbs/odometry",
+        },
+    },
+    "m3dgr_glim_only": {
+        "launch_package": "glim_ros",
+        "launch_file": "m3dgr_glim_only_experiment.launch",
+        "trajectory_topics": {
+            "glim": "/glim/cbs/odometry",
+        },
+    },
+    "m3dgr_glim_kimera": {
+        "launch_package": "glim_ros",
+        "launch_file": "m3dgr_glim_kimera_experiment.launch",
+        "default_bag_path": (
+            DEFAULT_CONTAINER_WORKSPACE
+            + "/src/datasets/M3DGR/Dynamic01/Dynamic01.bag"
+        ),
+        "default_gt_relative": "src/datasets/M3DGR/Dynamic01/Dynamic01.txt",
+        "trajectory_topics": {
+            "kimera": "/kimera_vio_ros/odometry",
+            "glim": "/glim/cbs/odometry",
+        },
+        "launch_args": {
+            "shutdown_on_bag_finish": "true",
+            "enable_cbs_bridge": "true",
+            "use_kimera_rviz": "false",
+            "kimera_visualize": "false",
+            "rerun_visualizer_enable": "false",
+            "rerun_world_alignment_enable": "true",
+            "glim_config_path": (
+                DEFAULT_CONTAINER_WORKSPACE
+                + "/runs/runtime_configs/config_m3dgr_camera_imu_experimental"
+            ),
+            "kimera_params_folder": (
+                DEFAULT_CONTAINER_WORKSPACE
+                + "/src/Kimera-VIO/params/M3DGRMonoOriginal"
+            ),
+            "kimera_body_frame_id": "camera_imu_link",
+            "glim_body_frame_id": "camera_imu_link",
+            "m3dgr_cbs_body_frame_tf_enable": "false",
+            "m3dgr_kimera_T_glim_x": "0.039151162",
+            "m3dgr_kimera_T_glim_y": "0.111984435",
+            "m3dgr_kimera_T_glim_z": "0.236306953",
+            "m3dgr_kimera_T_glim_qx": "0.507715982",
+            "m3dgr_kimera_T_glim_qy": "-0.497277044",
+            "m3dgr_kimera_T_glim_qz": "0.477055852",
+            "m3dgr_kimera_T_glim_qw": "0.517066473",
+            "cbs_health_aware_enable": "false",
+            "glim_cbs_mode": "active_window_temporary",
+            "glim_cbs_outgoing_marginal_source": "direct",
+            "kimera_cbs_odom_sender_mode": "time_horizon_window",
+            "glim_cbs_odom_sender_mode": "time_horizon_window",
+            "glim_cbs_odom_receiver_match_mode": "duration_aware_edge",
+            "glim_cbs_odom_max_horizon_pairs_per_update": "25",
+            "kimera_cbs_odom_max_horizon_pairs_per_update": "6",
+            "cbs_odom_duration_gate_enable": "true",
+            "cbs_odom_horizon_sec": "0.20",
+            "cbs_odom_horizon_tolerance_sec": "0.06",
+            "cbs_use_temporary_cbs_linear_factors": "true",
+            "cbs_odom_factor_mode": "active_window_temporary",
+            "cbs_odom_covariance_mode": "schur_relative_between",
+            "cbs_temporary_linear_already_applied_gate_enable": "true",
+            "cbs_temporary_linear_already_applied_metric_threshold": "0.01",
+            "cbs_temporary_linear_already_applied_dmu_threshold": "0.001",
+            "cbs_temporary_linear_already_applied_cov_rel_threshold": "0.001",
+            "glim_cbs_k2g_odom_factor_covariance_scale": "1.0",
+            "kimera_cbs_l2k_odom_factor_covariance_scale": "1.0",
+            "cbs_enable_soft_reset": "true",
+            "cbs_d_reset": "0.1",
+        },
+    },
+    "m3dgr_glim_only_live_rerun": {
+        "launch_package": "glim_ros",
+        "launch_file": "m3dgr_glim_only_live_rerun.launch",
+        "default_bag_path": (
+            DEFAULT_CONTAINER_WORKSPACE
+            + "/src/datasets/M3DGR/Dynamic01/Dynamic01.bag"
+        ),
+        "default_gt_relative": "src/datasets/M3DGR/Dynamic01/Dynamic01.txt",
+        "ground_truth_launch_arg": "ground_truth_path",
+        "trajectory_topics": {
+            "glim": "/glim_ros/odom",
+        },
+        "launch_args": {
+            "shutdown_on_bag_finish": "true",
+            "enable_cbs_bridge": "false",
+            "use_kimera_rviz": "false",
+            "kimera_visualize": "false",
+            "rerun_visualizer_enable": "true",
+            "rerun_world_alignment_enable": "true",
+        },
+    },
+    "m3dgr_mid360_glim_only_live_rerun": {
+        "launch_package": "glim_ros",
+        "launch_file": "m3dgr_mid360_glim_only_live_rerun.launch",
+        "default_bag_path": (
+            DEFAULT_CONTAINER_WORKSPACE
+            + "/src/datasets/M3DGR/Dynamic01/Dynamic01.bag"
+        ),
+        "default_gt_relative": "src/datasets/M3DGR/Dynamic01/Dynamic01.txt",
+        "ground_truth_launch_arg": "ground_truth_path",
+        "trajectory_topics": {
+            "glim": "/glim_ros/odom",
+        },
+        "launch_args": {
+            "shutdown_on_bag_finish": "true",
+            "enable_cbs_bridge": "false",
+            "rerun_visualizer_enable": "true",
+            "rerun_world_alignment_enable": "true",
+        },
+    },
+    "m3dgr_mid360_glim_kimera_live_rerun": {
+        "launch_package": "glim_ros",
+        "launch_file": "m3dgr_mid360_glim_kimera_live_rerun_raw_cbs.launch",
+        "default_bag_path": (
+            DEFAULT_CONTAINER_WORKSPACE
+            + "/src/datasets/M3DGR/Dynamic01/Dynamic01.bag"
+        ),
+        "default_gt_relative": "src/datasets/M3DGR/Dynamic01/Dynamic01.txt",
+        "ground_truth_launch_arg": "ground_truth_path",
+        "trajectory_topics": {
+            "kimera": "/kimera_vio_ros/odometry",
+            "glim": "/glim/cbs/odometry",
+        },
+        "launch_args": {
+            "shutdown_on_bag_finish": "true",
+            "enable_cbs_bridge": "true",
+            "rerun_visualizer_enable": "true",
+            "rerun_world_alignment_enable": "true",
+        },
+    },
+    "m3dgr_clean_glim_original": {
+        "launch_package": "glim_ros",
+        "launch_file": "m3dgr_clean_glim_only_experiment.launch",
+        "default_bag_path": (
+            DEFAULT_CONTAINER_WORKSPACE
+            + "/src/datasets/M3DGR/Dynamic01/Dynamic01.bag"
+        ),
+        "default_gt_relative": "src/datasets/M3DGR/Dynamic01/Dynamic01.txt",
+        "trajectory_topics": {
+            "glim": "/glim_ros/odom",
+        },
+        "ros_env": "main_with_clean_glim",
+        "launch_args": {
+            "shutdown_on_bag_finish": "true",
+            "enable_cbs_bridge": "false",
+            "use_kimera_rviz": "false",
+            "kimera_visualize": "false",
+            "rerun_visualizer_enable": "false",
+            "rerun_world_alignment_enable": "true",
+            "glim_config_path": (
+                DEFAULT_CONTAINER_WORKSPACE
+                + "/runs/runtime_configs/config_m3dgr_avia_original_glim_reference"
+            ),
+        },
+    },
+    "m3dgr_kimera_only": {
+        "launch_package": "glim_ros",
+        "launch_file": "m3dgr_kimera_only_experiment.launch",
+        "default_bag_path": (
+            DEFAULT_CONTAINER_WORKSPACE
+            + "/src/datasets/M3DGR/Dynamic01/Dynamic01.bag"
+        ),
+        "default_gt_relative": "src/datasets/M3DGR/Dynamic01/Dynamic01.txt",
+        "trajectory_topics": {
+            "kimera": "/kimera_vio_ros/odometry",
+        },
+        "launch_args": {
+            "shutdown_on_bag_finish": "true",
+            "enable_cbs_bridge": "false",
+            "use_kimera_rviz": "false",
+            "kimera_visualize": "false",
+            "rerun_visualizer_enable": "false",
+            "rerun_world_alignment_enable": "true",
+        },
+    },
+    "m3dgr_kimera_only_backend0": {
+        "launch_package": "glim_ros",
+        "launch_file": "m3dgr_kimera_only_experiment.launch",
+        "default_bag_path": (
+            DEFAULT_CONTAINER_WORKSPACE
+            + "/src/datasets/M3DGR/Dynamic01/Dynamic01.bag"
+        ),
+        "default_gt_relative": "src/datasets/M3DGR/Dynamic01/Dynamic01.txt",
+        "trajectory_topics": {
+            "kimera": "/kimera_vio_ros/odometry",
+        },
+        "launch_args": {
+            "shutdown_on_bag_finish": "true",
+            "enable_cbs_bridge": "false",
+            "use_kimera_rviz": "false",
+            "kimera_visualize": "false",
+            "rerun_visualizer_enable": "false",
+            "rerun_world_alignment_enable": "true",
+            "kimera_params_folder": (
+                DEFAULT_CONTAINER_WORKSPACE
+                + "/src/Kimera-VIO/params/M3DGRMonoBackend0"
+            ),
+        },
+    },
+    "m3dgr_clean_kimera_original": {
+        "launch_package": "kimera_vio_ros",
+        "launch_file": "kimera_vio_ros_m3dgr_mono_clean.launch",
+        "default_bag_path": (
+            DEFAULT_CONTAINER_WORKSPACE
+            + "/src/datasets/M3DGR/Dynamic01/Dynamic01.bag"
+        ),
+        "default_gt_relative": "../src/datasets/M3DGR/Dynamic01/Dynamic01.txt",
+        "trajectory_topics": {
+            "kimera": "/kimera_vio_ros/odometry",
+        },
+        "launch_args": {
+            "shutdown_on_bag_finish": "true",
+            "enable_cbs_bridge": "false",
+            "use_kimera_rviz": "true",
+            "kimera_visualize": "true",
+            "rerun_visualizer_enable": "false",
+            "rerun_world_alignment_enable": "false",
+        },
+    },
+    "m3dgr_clean_kimera_backend0": {
+        "launch_package": "kimera_vio_ros",
+        "launch_file": "kimera_vio_ros_m3dgr_mono_clean.launch",
+        "default_bag_path": (
+            DEFAULT_CONTAINER_WORKSPACE
+            + "/src/datasets/M3DGR/Dynamic01/Dynamic01.bag"
+        ),
+        "default_gt_relative": "../src/datasets/M3DGR/Dynamic01/Dynamic01.txt",
+        "trajectory_topics": {
+            "kimera": "/kimera_vio_ros/odometry",
+        },
+        "launch_args": {
+            "shutdown_on_bag_finish": "true",
+            "enable_cbs_bridge": "false",
+            "use_kimera_rviz": "true",
+            "kimera_visualize": "true",
+            "rerun_visualizer_enable": "false",
+            "rerun_world_alignment_enable": "false",
+            "kimera_params_folder": (
+                DEFAULT_CONTAINER_WORKSPACE
+                + "/clean_kimera_ws/src/Kimera-VIO/params/M3DGRMonoBackend0"
+            ),
+        },
+    },
+    "kimera_only": {
+        "launch_package": "glim_ros",
+        "launch_file": "boreas_kimera_only_experiment.launch",
+        "trajectory_topics": {
+            "kimera": "/kimera_vio_ros/odometry",
         },
     },
     "glim_kimera_live_rerun": {
@@ -97,6 +411,7 @@ ROW_MARKERS = (
     "CBS_PREINJECTION_RESIDUAL_ROW",
     "CBS_BELIEF_ODOM_ROW",
     "CBS_ODOM_OUTGOING_ROW",
+    "CBS_ODOM_RELATIVE_COVARIANCE_ROW",
     "CBS_ODOM_MATCH_ROW_L2K",
     "CBS_ODOM_MATCH_ROW_K2L",
     "CBS_ODOM_MATCH_ROW_G2K",
@@ -114,15 +429,22 @@ ROW_MARKERS = (
     "CBS_ODOM_FACTOR_COVARIANCE_ROW",
     "CBS_HEALTH_AWARE_SENDER_ROW",
     "CBS_HEALTH_AWARE_NIS_ROW",
+    "GLIM_CBS_RECEIVER_COVARIANCE_ROW",
     "CBS_TEMPORARY_LINEARIZATION_RESIDUAL_ROW",
     "CBS_KIMERA_OUTGOING_PROVENANCE_ROW",
     "CBS_MARGINALIZATION_GRAPH_ROW",
     "GLIM_CBS_ODOM_INJECT_ROW",
+    "GLIM_CBS_ACTIVE_FACTOR_DIAGNOSTIC_ROW",
+    "GLIM_CBS_ACTIVE_FACTOR_DETAIL_ROW",
+    "KIMERA_CBS_ACTIVE_FACTOR_DIAGNOSTIC_ROW",
+    "GLIM_POSE_STAGE_ROW",
+    "GLIM_TARGET_UPDATE_ROW",
     "GLIM_ROS_INPUT_TIMING_ROW",
     "GLIM_ASYNC_ODOM_TIMING_ROW",
     "GLIM_ODOM_IMU_TIMING_ROW",
     "GLIM_GPU_TIMING_ROW",
     "GLIM_CBS_TIMING_ROW",
+    "GLIM_SCAN_HEALTH_ROW",
     "KIMERA_BACKEND_SPINONCE_TIMING_ROW",
     "KIMERA_CBS_OUTGOING_TIMING_ROW",
     "KIMERA_OPTIMIZE_TIMING_ROW",
@@ -176,6 +498,9 @@ PREINJECTION_RESIDUAL_ACTIONS = {
     "temporary_linear_odom_applied",
     "temporary_odom_factor_applied",
     "persistent_odom_applied",
+    "active_window_temporary_odom_applied",
+    "active_window_temporary_graph_queued",
+    "temporary_linear_queued",
 }
 RECEIVER_METRIC_STATUSES = {
     "ok",
@@ -260,8 +585,35 @@ def docker_bash(container: str, command: str) -> List[str]:
     return ["docker", "exec", container, "bash", "-lc", command]
 
 
-def ros_env_command(command: str, container_workspace: str = "/workspace") -> str:
+def ros_env_command(
+    command: str,
+    container_workspace: str = "/workspace",
+    ros_env: str = "default",
+) -> str:
     quoted_workspace = shlex.quote(container_workspace)
+    if ros_env == "main_with_clean_glim":
+        clean_ws = shlex.quote(DEFAULT_CLEAN_GLIM_CONTAINER_WORKSPACE)
+        main_ws = quoted_workspace
+        return (
+            "source /opt/ros/noetic/setup.bash && "
+            f"cd {main_ws} && "
+            "source devel/setup.bash && "
+            f"source {clean_ws}/devel/setup.bash && "
+            "export ROS_PACKAGE_PATH="
+            f"{clean_ws}/src/glim_ros1:"
+            f"{clean_ws}/devel/share:"
+            f"{main_ws}/src:"
+            f"{main_ws}/devel/share:"
+            "/opt/ros/noetic/share:${ROS_PACKAGE_PATH} && "
+            "export LD_LIBRARY_PATH="
+            f"{clean_ws}/devel/lib:"
+            f"{main_ws}/devel/lib:"
+            "/opt/ros/noetic/lib:${LD_LIBRARY_PATH} && "
+            "export PYTHONPATH="
+            f"{main_ws}/devel/lib/python3/dist-packages:"
+            "/opt/ros/noetic/lib/python3/dist-packages:${PYTHONPATH} && "
+            f"{command}"
+        )
     return (
         "source /opt/ros/noetic/setup.bash && "
         f"cd {quoted_workspace} && "
@@ -306,17 +658,35 @@ def stop_existing_experiment(container: str) -> None:
             "s3e_alpha_liorf_kimera_topics.launch",
             "s3e_alpha_glim_kimera_experiment.launch",
             "s3e_alpha_glim_kimera_live_rerun.launch",
+            "m3dgr_glim_only_experiment.launch",
+            "m3dgr_glim_kimera_experiment.launch",
+            "m3dgr_glim_only_live_rerun.launch",
+            "m3dgr_mid360_glim_only_live_rerun.launch",
+            "m3dgr_mid360_glim_kimera_live_rerun_raw_cbs.launch",
+            "m3dgr_clean_glim_only_experiment.launch",
+            "m3dgr_kimera_only_experiment.launch",
+            "boreas_glim_kimera_experiment.launch",
             "rerun_topic_visualizer_node",
             "rostopic echo -p /kimera_vio_ros/odometry",
             "rostopic echo -p /liorf/mapping/odometry",
             "rostopic echo -p /glim/cbs/odometry",
+            "rostopic echo -p /glim_ros/odom",
         ],
     )
 
 
-def wait_for_ros_master(container: str, timeout_sec: float, container_workspace: str) -> bool:
+def wait_for_ros_master(
+    container: str,
+    timeout_sec: float,
+    container_workspace: str,
+    ros_env: str = "default",
+) -> bool:
     deadline = time.time() + timeout_sec
-    probe = ros_env_command("rostopic list >/dev/null 2>&1", container_workspace)
+    probe = ros_env_command(
+        "rostopic list >/dev/null 2>&1",
+        container_workspace,
+        ros_env,
+    )
     while time.time() < deadline:
         result = run_command(docker_bash(container, probe))
         if result.returncode == 0:
@@ -331,10 +701,12 @@ def start_rostopic_csv(
     output_container_path: str,
     stderr_path: Path,
     container_workspace: str,
+    ros_env: str = "default",
 ) -> subprocess.Popen:
     command = ros_env_command(
         f"rostopic echo -p {shlex.quote(topic)} > {shlex.quote(output_container_path)}",
         container_workspace,
+        ros_env,
     )
     err = stderr_path.open("w", encoding="utf-8")
     return subprocess.Popen(
@@ -390,8 +762,27 @@ def odometry_estimator_name(path: Path) -> str:
     return stem[: -len(suffix)] if stem.endswith(suffix) else stem
 
 
+def apply_cbs_mode_preset(
+    launch_args: Dict[str, str],
+    preset_name: Optional[str],
+) -> None:
+    if not preset_name:
+        return
+    preset = CBS_MODE_PRESETS.get(preset_name)
+    if preset is None:
+        raise ValueError(f"unknown CBS mode preset: {preset_name}")
+    launch_args.update(preset)
+
+
 def run_experiment(args: argparse.Namespace) -> Path:
     profile = selected_profile(args)
+    if args.cbs_mode_preset and args.experiment_profile not in CBS_MODE_PRESET_PROFILES:
+        supported = ", ".join(sorted(CBS_MODE_PRESET_PROFILES))
+        raise ValueError(
+            "CBS mode presets are currently supported only for profiles: "
+            f"{supported}"
+        )
+    ros_env = str(profile.get("ros_env", "default"))
     launch_package = args.launch_package or str(profile["launch_package"])
     launch_file = args.launch_file or str(profile["launch_file"])
     trajectory_topics = parse_trajectory_topic_specs(
@@ -412,9 +803,13 @@ def run_experiment(args: argparse.Namespace) -> Path:
         for name in CORE_REPOS
     }
 
-    gt_path = args.gt_path.resolve() if args.gt_path else workspace / DEFAULT_GT_RELATIVE
+    default_gt_relative = str(profile.get("default_gt_relative", DEFAULT_GT_RELATIVE))
+    gt_path = args.gt_path.resolve() if args.gt_path else workspace / default_gt_relative
+    bag_path = args.bag_path
+    if bag_path == DEFAULT_BAG_PATH and "default_bag_path" in profile:
+        bag_path = str(profile["default_bag_path"])
     launch_args = {
-        "bag_path": args.bag_path,
+        "bag_path": bag_path,
         "bag_duration": str(args.duration),
         "shutdown_on_bag_finish": str(args.shutdown_on_bag_finish).lower(),
         "enable_cbs_bridge": str(args.enable_cbs_bridge).lower(),
@@ -429,6 +824,15 @@ def run_experiment(args: argparse.Namespace) -> Path:
     launch_args.update(
         {key: str(value) for key, value in profile.get("launch_args", {}).items()}
     )
+    apply_cbs_mode_preset(launch_args, args.cbs_mode_preset)
+    if "ground_truth_launch_arg" in profile:
+        launch_gt_key = str(profile["ground_truth_launch_arg"])
+        try:
+            launch_args[launch_gt_key] = container_path(
+                workspace, gt_path, args.container_workspace
+            )
+        except ValueError:
+            launch_args[launch_gt_key] = str(gt_path)
     for item in args.extra_arg:
         if ":=" not in item:
             raise ValueError(f"extra launch arg must look like key:=value: {item}")
@@ -448,8 +852,10 @@ def run_experiment(args: argparse.Namespace) -> Path:
         "workspace": str(workspace),
         "container_workspace": args.container_workspace,
         "container": args.container,
+        "ros_env": ros_env,
         "launch_file": launch_target,
         "launch_args": launch_args,
+        "cbs_mode_preset": args.cbs_mode_preset,
         "duration_sec": args.duration,
         "timeout_padding_sec": args.timeout_padding,
         "ground_truth": str(gt_path),
@@ -474,6 +880,7 @@ def run_experiment(args: argparse.Namespace) -> Path:
     launch_command = ros_env_command(
         f"roslaunch {roslaunch_target} " + launch_arg_text,
         args.container_workspace,
+        ros_env,
     )
     roslaunch_log = run_dir / "roslaunch.log"
     with roslaunch_log.open("w", encoding="utf-8", errors="replace") as log_file:
@@ -486,7 +893,7 @@ def run_experiment(args: argparse.Namespace) -> Path:
 
         topic_procs: List[subprocess.Popen] = []
         if args.record_trajectories and wait_for_ros_master(
-            args.container, 30.0, args.container_workspace
+            args.container, 30.0, args.container_workspace, ros_env
         ):
             for label, topic in trajectory_topics.items():
                 csv_path = traj_dir / f"{odometry_csv_name(label)}.csv"
@@ -498,6 +905,7 @@ def run_experiment(args: argparse.Namespace) -> Path:
                         container_path(workspace, csv_path, args.container_workspace),
                         err_path,
                         args.container_workspace,
+                        ros_env,
                     )
                 )
                 manifest["recorded_topics"][label] = {
@@ -668,6 +1076,7 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
     preinjection_residual_rows: List[Dict[str, Any]] = []
     belief_odom_rows: List[Dict[str, Any]] = []
     odom_outgoing_rows: List[Dict[str, Any]] = []
+    odom_relative_covariance_rows: List[Dict[str, Any]] = []
     odom_match_rows: List[Dict[str, Any]] = []
     odom_retry_rows: List[Dict[str, Any]] = []
     bpsam_odom_add_rows: List[Dict[str, Any]] = []
@@ -675,12 +1084,19 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
     odom_factor_covariance_rows: List[Dict[str, Any]] = []
     health_sender_rows: List[Dict[str, Any]] = []
     health_nis_rows: List[Dict[str, Any]] = []
+    glim_receiver_covariance_rows: List[Dict[str, Any]] = []
+    glim_active_factor_diagnostic_rows: List[Dict[str, Any]] = []
+    glim_active_factor_detail_rows: List[Dict[str, Any]] = []
+    kimera_active_factor_diagnostic_rows: List[Dict[str, Any]] = []
+    glim_pose_stage_rows: List[Dict[str, Any]] = []
+    glim_target_update_rows: List[Dict[str, Any]] = []
     odom_temporary_postsolve_residual_rows: List[Dict[str, Any]] = []
     temporary_linearization_residual_rows: List[Dict[str, Any]] = []
     provenance_rows: List[Dict[str, Any]] = []
     marginalization_graph_rows: List[Dict[str, Any]] = []
     timing_rows: List[Dict[str, Any]] = []
     glim_timing_rows: List[Dict[str, Any]] = []
+    glim_scan_health_rows: List[Dict[str, Any]] = []
     kimera_flow_rows: List[Dict[str, int]] = []
     kimera_odom_flow_rows: List[Dict[str, int]] = []
     liorf_odom_flow_rows: List[Dict[str, int]] = []
@@ -723,7 +1139,8 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
     glim_odom_flow_re = re.compile(
         r"GLIM CBS incoming flow: matched=(?P<matched>\d+) "
         r"injected=(?P<injected>\d+) duplicate=(?P<duplicate>\d+) "
-        r"rejected=(?P<rejected>\d+) pending=(?P<pending>\d+)"
+        r"rejected=(?P<rejected>\d+)(?: deferred=(?P<deferred>\d+))? "
+        r"pending=(?P<pending>\d+)(?: pending_deferred=(?P<pending_deferred>\d+))?"
     )
     alignment_re = re.compile(
         r"Kimera Rerun world alignment initialized .* dt=(?P<dt_ms>[-+0-9.eE]+) ms"
@@ -818,6 +1235,9 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
                         if marker == "CBS_ODOM_OUTGOING_ROW" and len(row) < 10:
                             skipped_rows[f"{marker}:malformed_odom_outgoing"] += 1
                             continue
+                        if marker == "CBS_ODOM_RELATIVE_COVARIANCE_ROW" and len(row) < 15:
+                            skipped_rows[f"{marker}:malformed_odom_relative_covariance"] += 1
+                            continue
                         if marker.startswith("CBS_ODOM_MATCH_ROW") and len(row) < 13:
                             skipped_rows[f"{marker}:malformed_odom_match"] += 1
                             continue
@@ -860,6 +1280,30 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
                             continue
                         if marker == "GLIM_CBS_ODOM_INJECT_ROW" and len(row) < 7:
                             skipped_rows[f"{marker}:malformed_glim_odom_inject"] += 1
+                            continue
+                        if marker == "GLIM_CBS_ACTIVE_FACTOR_DIAGNOSTIC_ROW" and len(row) < 42:
+                            skipped_rows[
+                                f"{marker}:malformed_glim_active_factor_diagnostic"
+                            ] += 1
+                            continue
+                        if marker == "GLIM_CBS_ACTIVE_FACTOR_DETAIL_ROW" and len(row) < 20:
+                            skipped_rows[
+                                f"{marker}:malformed_glim_active_factor_detail"
+                            ] += 1
+                            continue
+                        if marker == "KIMERA_CBS_ACTIVE_FACTOR_DIAGNOSTIC_ROW" and len(row) < 42:
+                            skipped_rows[
+                                f"{marker}:malformed_kimera_active_factor_diagnostic"
+                            ] += 1
+                            continue
+                        if marker == "GLIM_POSE_STAGE_ROW" and len(row) < 26:
+                            skipped_rows[f"{marker}:malformed_glim_pose_stage"] += 1
+                            continue
+                        if marker == "GLIM_TARGET_UPDATE_ROW" and len(row) < 21:
+                            skipped_rows[f"{marker}:malformed_glim_target_update"] += 1
+                            continue
+                        if marker == "GLIM_SCAN_HEALTH_ROW" and len(row) < 28:
+                            skipped_rows[f"{marker}:malformed_glim_scan_health"] += 1
                             continue
                         if marker.startswith("GLIM_") and marker.endswith("_TIMING_ROW"):
                             timing = parse_glim_timing_row(row)
@@ -1190,6 +1634,50 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
                                     "status": row[9],
                                 }
                             )
+                        elif marker == "CBS_ODOM_RELATIVE_COVARIANCE_ROW":
+                            parsed_row = {
+                                "direction": row[1],
+                                "sender_robot": row[2],
+                                "receiver_robot": row[3],
+                                "from_key": row[4],
+                                "to_key": row[5],
+                                "mode": row[6],
+                                "trace_old_conditional": to_float(row[7]),
+                                "trace_new_schur_relative": to_float(row[8]),
+                                "ratio_new_over_old": to_float(row[9]),
+                            }
+                            if len(row) >= 26:
+                                parsed_row.update(
+                                    {
+                                        "eig_old_min": to_float(row[10]),
+                                        "eig_old_max": to_float(row[11]),
+                                        "eig_new_min": to_float(row[12]),
+                                        "eig_new_max": to_float(row[13]),
+                                        "rotation_trace_old": to_float(row[14]),
+                                        "translation_trace_old": to_float(row[15]),
+                                        "rotation_trace_new": to_float(row[16]),
+                                        "translation_trace_new": to_float(row[17]),
+                                        "H_to_rank": to_int(row[18]),
+                                        "H_to_condition_estimate": to_float(row[19]),
+                                        "schur_vs_direct_difference_norm": to_float(row[20]),
+                                        "jitter_used": to_int(row[21]),
+                                        "jitter_added": to_float(row[22]),
+                                        "lambda_rel_eigenvalues": row[23],
+                                        "sigma_rel_eigenvalues": row[24],
+                                        "status": row[25],
+                                    }
+                                )
+                            else:
+                                parsed_row.update(
+                                    {
+                                        "lambda_rel_eigenvalues": row[10],
+                                        "sigma_rel_eigenvalues": row[11],
+                                        "jitter_used": to_int(row[12]),
+                                        "jitter_added": to_float(row[13]),
+                                        "status": row[14],
+                                    }
+                                )
+                            odom_relative_covariance_rows.append(parsed_row)
                         elif marker.startswith("CBS_ODOM_MATCH_ROW"):
                             parsed_row = {
                                 "direction": row[0].replace("CBS_ODOM_MATCH_ROW_", ""),
@@ -1241,24 +1729,30 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
                                 }
                             )
                         elif marker == "CBS_ODOM_PREINJECTION_RESIDUAL_ROW":
-                            preinjection_residual_rows.append(
-                                {
-                                    "direction": row[1],
-                                    "receiver_robot": row[2],
-                                    "source_agent": row[3],
-                                    "belief_key": f"{row[4]}->{row[5]}",
-                                    "from_key": row[4],
-                                    "to_key": row[5],
-                                    "action": row[6],
-                                    "receiver_pose_source": row[7],
-                                    "residual_norm": to_float(row[8]),
-                                    "rot_norm": to_float(row[9]),
-                                    "trans_norm": to_float(row[10]),
-                                    "yaw_error_rad": to_float(row[11]),
-                                    "yaw_error_deg": to_float(row[12]),
-                                    "incoming_trace": to_float(row[13]),
-                                }
-                            )
+                            parsed_row = {
+                                "direction": row[1],
+                                "receiver_robot": row[2],
+                                "source_agent": row[3],
+                                "belief_key": f"{row[4]}->{row[5]}",
+                                "from_key": row[4],
+                                "to_key": row[5],
+                                "action": row[6],
+                                "receiver_pose_source": row[7],
+                                "residual_norm": to_float(row[8]),
+                                "rot_norm": to_float(row[9]),
+                                "trans_norm": to_float(row[10]),
+                                "yaw_error_rad": to_float(row[11]),
+                                "yaw_error_deg": to_float(row[12]),
+                                "incoming_trace": to_float(row[13]),
+                            }
+                            if len(row) >= 16:
+                                parsed_row.update(
+                                    {
+                                        "whitened_norm": to_float(row[14]),
+                                        "nis": to_float(row[15]),
+                                    }
+                                )
+                            preinjection_residual_rows.append(parsed_row)
                         elif marker == "CBS_ODOM_TEMPORARY_POSTSOLVE_RESIDUAL_ROW":
                             odom_temporary_postsolve_residual_rows.append(
                                 {
@@ -1347,6 +1841,37 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
                                     "chi2": to_float(row[15]),
                                     "alpha_cons": to_float(row[16]),
                                     "final_trace": to_float(row[17]),
+                                    "raw_alpha_cons": to_float(row[18]) if len(row) > 18 else math.nan,
+                                    "relative_trust_enabled": to_int(row[19]) if len(row) > 19 else 0,
+                                    "relative_trust_status": row[20] if len(row) > 20 else "legacy",
+                                    "sender_uncertainty": to_float(row[21]) if len(row) > 21 else math.nan,
+                                    "receiver_uncertainty": to_float(row[22]) if len(row) > 22 else math.nan,
+                                    "trust_balance": to_float(row[23]) if len(row) > 23 else math.nan,
+                                    "trust_weight": to_float(row[24]) if len(row) > 24 else math.nan,
+                                    "relative_trust_calibrated": to_int(row[25]) if len(row) > 25 else 0,
+                                    "sender_uncertainty_baseline": to_float(row[26]) if len(row) > 26 else math.nan,
+                                    "receiver_uncertainty_baseline": to_float(row[27]) if len(row) > 27 else math.nan,
+                                    "sender_uncertainty_growth": to_float(row[28]) if len(row) > 28 else math.nan,
+                                    "receiver_uncertainty_growth": to_float(row[29]) if len(row) > 29 else math.nan,
+                                }
+                            )
+                        elif marker == "GLIM_CBS_RECEIVER_COVARIANCE_ROW":
+                            glim_receiver_covariance_rows.append(
+                                {
+                                    "direction": row[1],
+                                    "receiver_agent": row[2],
+                                    "source_agent": row[3],
+                                    "from_key": row[4],
+                                    "to_key": row[5],
+                                    "belief_key": f"{row[4]}->{row[5]}",
+                                    "from_in_new_values": to_int(row[6]),
+                                    "to_in_new_values": to_int(row[7]),
+                                    "from_in_linearization": to_int(row[8]),
+                                    "to_in_linearization": to_int(row[9]),
+                                    "joint_info_attempted": to_int(row[10]),
+                                    "joint_info_ok": to_int(row[11]),
+                                    "conditional_covariance_ok": to_int(row[12]),
+                                    "status": row[13],
                                 }
                             )
                         elif marker == "CBS_TEMPORARY_LINEARIZATION_RESIDUAL_ROW":
@@ -1430,6 +1955,183 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
                                     "status": row[6],
                                 }
                             )
+                        elif marker == "GLIM_CBS_ACTIVE_FACTOR_DIAGNOSTIC_ROW":
+                            glim_active_factor_diagnostic_rows.append(
+                                {
+                                    "direction": row[1],
+                                    "receiver_robot": row[2],
+                                    "source_agent": row[3],
+                                    "local_from_key": row[4],
+                                    "local_to_key": row[5],
+                                    "source_edge": row[6],
+                                    "factor_index": row[7],
+                                    "active_update_count": to_int(row[8]),
+                                    "active_age_sec": to_float(row[9]),
+                                    "from_abs_dt": to_float(row[10]),
+                                    "to_abs_dt": to_float(row[11]),
+                                    "covariance_trace": to_float(row[12]),
+                                    "covariance_rotation_trace": to_float(row[13]),
+                                    "covariance_translation_trace": to_float(row[14]),
+                                    "cbs_error": to_float(row[15]),
+                                    "residual_norm": to_float(row[16]),
+                                    "rot_norm": to_float(row[17]),
+                                    "trans_norm": to_float(row[18]),
+                                    "whitened_norm": to_float(row[19]),
+                                    "nis": to_float(row[20]),
+                                    "cbs_hessian_frobenius": to_float(row[21]),
+                                    "same_edge_count": to_int(row[22]),
+                                    "same_edge_error_count": to_int(row[23]),
+                                    "same_edge_error_sum": to_float(row[24]),
+                                    "same_edge_hessian_count": to_int(row[25]),
+                                    "same_edge_hessian_sum": to_float(row[26]),
+                                    "unary_count": to_int(row[27]),
+                                    "unary_error_count": to_int(row[28]),
+                                    "unary_error_sum": to_float(row[29]),
+                                    "unary_hessian_count": to_int(row[30]),
+                                    "unary_hessian_sum": to_float(row[31]),
+                                    "other_local_count": to_int(row[32]),
+                                    "other_local_error_count": to_int(row[33]),
+                                    "other_local_error_sum": to_float(row[34]),
+                                    "other_local_hessian_count": to_int(row[35]),
+                                    "other_local_hessian_sum": to_float(row[36]),
+                                    "other_external_count": to_int(row[37]),
+                                    "other_external_error_count": to_int(row[38]),
+                                    "other_external_error_sum": to_float(row[39]),
+                                    "other_external_hessian_count": to_int(row[40]),
+                                    "other_external_hessian_sum": to_float(row[41]),
+                                }
+                            )
+                        elif marker == "GLIM_CBS_ACTIVE_FACTOR_DETAIL_ROW":
+                            glim_active_factor_detail_rows.append(
+                                {
+                                    "direction": row[1],
+                                    "receiver_robot": row[2],
+                                    "source_agent": row[3],
+                                    "local_from_key": row[4],
+                                    "local_to_key": row[5],
+                                    "source_edge": row[6],
+                                    "active_update_count": to_int(row[7]),
+                                    "active_age_sec": to_float(row[8]),
+                                    "cbs_factor_index": row[9],
+                                    "graph_factor_index": row[10],
+                                    "category": row[11],
+                                    "is_external": to_int(row[12]),
+                                    "touches_from": to_int(row[13]),
+                                    "touches_to": to_int(row[14]),
+                                    "key_count": to_int(row[15]),
+                                    "keys": row[16],
+                                    "factor_type": row[17],
+                                    "error": to_float(row[18]),
+                                    "hessian_frobenius": to_float(row[19]),
+                                }
+                            )
+                        elif marker == "KIMERA_CBS_ACTIVE_FACTOR_DIAGNOSTIC_ROW":
+                            kimera_active_factor_diagnostic_rows.append(
+                                {
+                                    "direction": row[1],
+                                    "receiver_robot": row[2],
+                                    "source_agent": row[3],
+                                    "local_from_key": row[4],
+                                    "local_to_key": row[5],
+                                    "source_edge": row[6],
+                                    "factor_index": row[7],
+                                    "active_update_count": to_int(row[8]),
+                                    "active_age_sec": to_float(row[9]),
+                                    "from_abs_dt": to_float(row[10]),
+                                    "to_abs_dt": to_float(row[11]),
+                                    "covariance_trace": to_float(row[12]),
+                                    "covariance_rotation_trace": to_float(row[13]),
+                                    "covariance_translation_trace": to_float(row[14]),
+                                    "cbs_error": to_float(row[15]),
+                                    "residual_norm": to_float(row[16]),
+                                    "rot_norm": to_float(row[17]),
+                                    "trans_norm": to_float(row[18]),
+                                    "whitened_norm": to_float(row[19]),
+                                    "nis": to_float(row[20]),
+                                    "cbs_hessian_frobenius": to_float(row[21]),
+                                    "same_edge_count": to_int(row[22]),
+                                    "same_edge_error_count": to_int(row[23]),
+                                    "same_edge_error_sum": to_float(row[24]),
+                                    "same_edge_hessian_count": to_int(row[25]),
+                                    "same_edge_hessian_sum": to_float(row[26]),
+                                    "unary_count": to_int(row[27]),
+                                    "unary_error_count": to_int(row[28]),
+                                    "unary_error_sum": to_float(row[29]),
+                                    "unary_hessian_count": to_int(row[30]),
+                                    "unary_hessian_sum": to_float(row[31]),
+                                    "other_local_count": to_int(row[32]),
+                                    "other_local_error_count": to_int(row[33]),
+                                    "other_local_error_sum": to_float(row[34]),
+                                    "other_local_hessian_count": to_int(row[35]),
+                                    "other_local_hessian_sum": to_float(row[36]),
+                                    "other_external_count": to_int(row[37]),
+                                    "other_external_error_count": to_int(row[38]),
+                                    "other_external_error_sum": to_float(row[39]),
+                                    "other_external_hessian_count": to_int(row[40]),
+                                    "other_external_hessian_sum": to_float(row[41]),
+                                }
+                            )
+                        elif marker == "GLIM_POSE_STAGE_ROW":
+                            glim_pose_stage_rows.append(
+                                {
+                                    "stamp": to_float(row[1]),
+                                    "frame_id": to_int(row[2]),
+                                    "last_frame_id": to_int(row[3]),
+                                    "imu_integrated_count": to_int(row[4]),
+                                    "last_to_imu_pred_translation_m": to_float(row[5]),
+                                    "last_to_imu_pred_rotation_deg": to_float(row[6]),
+                                    "last_to_scan_translation_m": to_float(row[7]),
+                                    "last_to_scan_rotation_deg": to_float(row[8]),
+                                    "last_to_smoother_translation_m": to_float(row[9]),
+                                    "last_to_smoother_rotation_deg": to_float(row[10]),
+                                    "scan_minus_imu_translation_m": to_float(row[11]),
+                                    "scan_minus_imu_rotation_deg": to_float(row[12]),
+                                    "smoother_minus_scan_translation_m": to_float(row[13]),
+                                    "smoother_minus_scan_rotation_deg": to_float(row[14]),
+                                    "smoother_minus_imu_translation_m": to_float(row[15]),
+                                    "smoother_minus_imu_rotation_deg": to_float(row[16]),
+                                    "imu_pred_x": to_float(row[17]),
+                                    "imu_pred_y": to_float(row[18]),
+                                    "imu_pred_z": to_float(row[19]),
+                                    "scan_x": to_float(row[20]),
+                                    "scan_y": to_float(row[21]),
+                                    "scan_z": to_float(row[22]),
+                                    "smoother_x": to_float(row[23]),
+                                    "smoother_y": to_float(row[24]),
+                                    "smoother_z": to_float(row[25]),
+                                }
+                            )
+                        elif marker == "GLIM_TARGET_UPDATE_ROW":
+                            glim_target_update_rows.append(
+                                {
+                                    "stamp": to_float(row[1]),
+                                    "frame_id": to_int(row[2]),
+                                    "action": row[3],
+                                    "pose_source": row[4],
+                                    "scan_health_enable": to_int(row[5]),
+                                    "scan_health_reference_ready": to_int(row[6]),
+                                    "scan_health_raw": to_float(row[7]),
+                                    "scan_health_clamped": to_float(row[8]),
+                                    "preprocessed_points": to_float(row[9]),
+                                    "scan_error_ratio": to_float(row[10]),
+                                    "scan_minus_imu_translation_m": to_float(row[11]),
+                                    "scan_minus_imu_rotation_deg": to_float(row[12]),
+                                    "scan_correction_translation_m": to_float(row[13]),
+                                    "scan_correction_rotation_deg": to_float(row[14]),
+                                    "target_update_x": to_float(row[15]),
+                                    "target_update_y": to_float(row[16]),
+                                    "target_update_z": to_float(row[17]),
+                                    "previous_target_x": to_float(row[18]),
+                                    "previous_target_y": to_float(row[19]),
+                                    "previous_target_z": to_float(row[20]),
+                                }
+                            )
+                        elif marker == "GLIM_SCAN_HEALTH_ROW":
+                            parsed_row = parse_glim_scan_health_row(row)
+                            if parsed_row:
+                                glim_scan_health_rows.append(parsed_row)
+                            else:
+                                skipped_rows[f"{marker}:malformed_glim_scan_health"] += 1
                         elif marker in {
                             "KIMERA_BACKEND_SPINONCE_TIMING_ROW",
                             "KIMERA_CBS_OUTGOING_TIMING_ROW",
@@ -1454,6 +2156,7 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
         "preinjection_residual": preinjection_residual_rows,
         "belief_odom": belief_odom_rows,
         "odom_outgoing": odom_outgoing_rows,
+        "odom_relative_covariance": odom_relative_covariance_rows,
         "odom_match": odom_match_rows,
         "odom_retry": odom_retry_rows,
         "bpsam_odom_add": bpsam_odom_add_rows,
@@ -1461,12 +2164,19 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
         "odom_factor_covariance": odom_factor_covariance_rows,
         "health_sender": health_sender_rows,
         "health_nis": health_nis_rows,
+        "glim_receiver_covariance": glim_receiver_covariance_rows,
+        "glim_active_factor_diagnostic": glim_active_factor_diagnostic_rows,
+        "glim_active_factor_detail": glim_active_factor_detail_rows,
+        "kimera_active_factor_diagnostic": kimera_active_factor_diagnostic_rows,
+        "glim_pose_stage": glim_pose_stage_rows,
+        "glim_target_update": glim_target_update_rows,
         "odom_temporary_postsolve_residual": odom_temporary_postsolve_residual_rows,
         "temporary_linearization_residual": temporary_linearization_residual_rows,
         "provenance": provenance_rows,
         "marginalization_graph": marginalization_graph_rows,
         "timing": timing_rows,
         "glim_timing": glim_timing_rows,
+        "glim_scan_health": glim_scan_health_rows,
         "kimera_flow": kimera_flow_rows,
         "kimera_odom_flow": kimera_odom_flow_rows,
         "liorf_odom_flow": liorf_odom_flow_rows,
@@ -1692,6 +2402,68 @@ def parse_glim_timing_row(row: List[str]) -> Dict[str, Any]:
     return {}
 
 
+def parse_glim_scan_health_row(row: List[str]) -> Dict[str, Any]:
+    if len(row) < 28:
+        return {}
+    parsed = {
+        "marker": row[0],
+        "stamp": to_float(row[1]),
+        "frame_id": to_int(row[2]),
+        "registration_type": row[3],
+        "preprocessed_points": to_int(row[4]),
+        "matching_factor_count": to_int(row[5]),
+        "scan_initial_error": to_float(row[6]),
+        "scan_final_error": to_float(row[7]),
+        "scan_error_ratio": to_float(row[8]),
+        "lm_iterations": to_int(row[9]),
+        "lm_inner_iterations": to_int(row[10]),
+        "lm_error": to_float(row[11]),
+        "lm_cost_change": to_float(row[12]),
+        "lm_lambda": to_float(row[13]),
+        "lm_solve_success": to_int(row[14]),
+        "lm_linearization_time_sec": to_float(row[15]),
+        "lm_linear_solver_time_sec": to_float(row[16]),
+        "imu_pred_delta_translation_m": to_float(row[17]),
+        "imu_pred_delta_rotation_deg": to_float(row[18]),
+        "scan_delta_translation_m": to_float(row[19]),
+        "scan_delta_rotation_deg": to_float(row[20]),
+        "scan_minus_imu_translation_m": to_float(row[21]),
+        "scan_minus_imu_rotation_deg": to_float(row[22]),
+        "scan_hessian_min_eigenvalue": to_float(row[23]),
+        "scan_hessian_max_eigenvalue": to_float(row[24]),
+        "scan_hessian_condition_estimate": to_float(row[25]),
+        "scan_hessian_rank_estimate": to_int(row[26]),
+        "scan_hessian_frobenius_norm": to_float(row[27]),
+    }
+    if len(row) >= 48:
+        parsed.update(
+            {
+                "scan_health_enable": to_int(row[28]),
+                "scan_health_apply_to_local_scan_precision": to_int(row[29]),
+                "scan_health_reference_ready": to_int(row[30]),
+                "scan_health_reference_count": to_int(row[31]),
+                "scan_health_point_reference": to_float(row[32]),
+                "scan_health_hessian_min_reference": to_float(row[33]),
+                "scan_health_hessian_frobenius_reference": to_float(row[34]),
+                "scan_health_point_ratio": to_float(row[35]),
+                "scan_health_point_score": to_float(row[36]),
+                "scan_health_translation_score": to_float(row[37]),
+                "scan_health_rotation_score": to_float(row[38]),
+                "scan_health_error_ratio_score": to_float(row[39]),
+                "scan_health_hessian_min_ratio": to_float(row[40]),
+                "scan_health_hessian_min_score": to_float(row[41]),
+                "scan_health_hessian_frobenius_ratio": to_float(row[42]),
+                "scan_health_hessian_frobenius_score": to_float(row[43]),
+                "scan_health_raw": to_float(row[44]),
+                "scan_health_clamped": to_float(row[45]),
+                "scan_health_base_scan_precision": to_float(row[46]),
+                "scan_health_effective_scan_precision": to_float(row[47]),
+                "scan_health_hessian_enable": to_int(row[48]) if len(row) >= 49 else 0,
+            }
+        )
+    return parsed
+
+
 def write_dicts_csv(path: Path, rows: List[Dict[str, Any]]) -> None:
     if not rows:
         path.write_text("", encoding="utf-8")
@@ -1846,16 +2618,21 @@ def interpolate_trajectory(traj: Trajectory, query_t: float) -> Optional[Point]:
     )
 
 
-def pair_trajectories(source: Trajectory, target: Trajectory) -> Tuple[List[Point], List[Point]]:
+def pair_trajectories(
+    source: Trajectory,
+    target: Trajectory,
+) -> Tuple[List[Point], List[Point], List[float]]:
     src_points: List[Point] = []
     dst_points: List[Point] = []
+    matched_times: List[float] = []
     for t, point in source:
         target_point = interpolate_trajectory(target, t)
         if target_point is None:
             continue
         src_points.append(point)
         dst_points.append(target_point)
-    return src_points, dst_points
+        matched_times.append(t)
+    return src_points, dst_points, matched_times
 
 
 def path_length(traj: Trajectory) -> float:
@@ -1864,6 +2641,17 @@ def path_length(traj: Trajectory) -> float:
     total = 0.0
     last = traj[0][1]
     for _, point in traj[1:]:
+        total += distance(point, last)
+        last = point
+    return total
+
+
+def point_path_length(points: Sequence[Point]) -> float:
+    if len(points) < 2:
+        return 0.0
+    total = 0.0
+    last = points[0]
+    for point in points[1:]:
         total += distance(point, last)
         last = point
     return total
@@ -1924,14 +2712,19 @@ def rmse(errors: Sequence[float]) -> float:
 
 
 def trajectory_metric_row(name: str, traj: Trajectory, reference: Trajectory) -> Dict[str, Any]:
-    src, dst = pair_trajectories(traj, reference)
+    src, dst, matched_times = pair_trajectories(traj, reference)
     yaw, translation, aligned = align_se2(src, dst)
     errors = [distance(lhs, rhs) for lhs, rhs in zip(aligned, dst)]
     return {
         "name": name,
         "samples": len(traj),
-        "duration_sec": (traj[-1][0] - traj[0][0]) if len(traj) >= 2 else math.nan,
-        "path_length_m": path_length(traj),
+        "duration_sec": (
+            matched_times[-1] - matched_times[0]
+            if len(matched_times) >= 2
+            else math.nan
+        ),
+        "path_length_m": point_path_length(src),
+        "reference_path_length_m": point_path_length(dst),
         "reference_matches": len(errors),
         "alignment": "SE2 yaw+translation",
         "alignment_yaw_deg": math.degrees(yaw),
@@ -1977,6 +2770,300 @@ def compute_trajectory_metrics(run_dir: Path, gt_path: Path) -> List[Dict[str, A
                 )
             )
     return rows
+
+
+def pose_index_from_token(token: Any) -> Optional[int]:
+    match = re.fullmatch(r"[A-Za-z](\d+)", str(token))
+    if not match:
+        return None
+    return int(match.group(1))
+
+
+def edge_to_pose_indices(edge: Any) -> Tuple[Optional[int], Optional[int]]:
+    indices = [int(item) for item in re.findall(r"[A-Za-z](\d+)", str(edge))]
+    if len(indices) < 2:
+        return None, None
+    return indices[0], indices[1]
+
+
+def nearest_row_by_stamp(
+    rows: Sequence[Dict[str, Any]],
+    query_t: float,
+    stamp_key: str = "stamp",
+) -> Optional[Dict[str, Any]]:
+    if not rows or not math.isfinite(query_t):
+        return None
+    times = [to_float(str(row.get(stamp_key, math.nan))) for row in rows]
+    idx = bisect.bisect_left(times, query_t)
+    candidates: List[int] = []
+    if idx < len(rows):
+        candidates.append(idx)
+    if idx > 0:
+        candidates.append(idx - 1)
+    if not candidates:
+        return None
+    best = min(candidates, key=lambda item: abs(times[item] - query_t))
+    return rows[best]
+
+
+def trajectory_error_timeline(
+    run_dir: Path,
+    gt_path: Path,
+) -> List[Dict[str, Any]]:
+    gt = load_ground_truth(gt_path)
+    estimators = load_estimator_odometry(run_dir)
+    if not gt or not estimators:
+        return []
+
+    first_stamps = [poses[0]["t"] for poses in estimators.values() if poses]
+    if not first_stamps:
+        return []
+    first_stamp = min(first_stamps)
+    rows: List[Dict[str, Any]] = []
+    for estimator, poses in sorted(estimators.items()):
+        matched: List[Tuple[PoseRow, Point]] = []
+        for pose in poses:
+            gt_point = interpolate_trajectory(gt, pose["t"])
+            if gt_point is not None:
+                matched.append((pose, gt_point))
+        if len(matched) < 2:
+            continue
+        est_points = [(pose["x"], pose["y"], pose["z"]) for pose, _ in matched]
+        gt_points = [point for _, point in matched]
+        yaw, translation, aligned = align_se2(est_points, gt_points)
+        for (pose, gt_point), aligned_point in zip(matched, aligned):
+            rows.append(
+                {
+                    "estimator": estimator,
+                    "stamp": pose["t"],
+                    "rel_sec": pose["t"] - first_stamp,
+                    "error_m": distance(aligned_point, gt_point),
+                    "alignment": "SE2 yaw+translation",
+                    "alignment_yaw_deg": math.degrees(yaw),
+                    "alignment_tx_m": translation[0],
+                    "alignment_ty_m": translation[1],
+                    "alignment_tz_m": translation[2],
+                    "est_x": pose["x"],
+                    "est_y": pose["y"],
+                    "est_z": pose["z"],
+                    "aligned_x": aligned_point[0],
+                    "aligned_y": aligned_point[1],
+                    "aligned_z": aligned_point[2],
+                    "gt_x": gt_point[0],
+                    "gt_y": gt_point[1],
+                    "gt_z": gt_point[2],
+                }
+            )
+    return sorted(rows, key=lambda row: (str(row.get("estimator", "")), row["stamp"]))
+
+
+def median_or_nan(values: Iterable[float]) -> float:
+    return percentile(values, 0.50)
+
+
+def glim_frame_timeline(
+    parsed: Dict[str, Any],
+    trajectory_error_rows: Sequence[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    scan_rows = sorted(parsed.get("glim_scan_health", []), key=lambda row: row.get("stamp", 0.0))
+    pose_rows = {
+        int(row["frame_id"]): row
+        for row in parsed.get("glim_pose_stage", [])
+        if row.get("frame_id") is not None
+    }
+    target_rows = {
+        int(row["frame_id"]): row
+        for row in parsed.get("glim_target_update", [])
+        if row.get("frame_id") is not None
+    }
+    if not scan_rows and pose_rows:
+        scan_rows = sorted(pose_rows.values(), key=lambda row: row.get("stamp", 0.0))
+    if not scan_rows:
+        return []
+
+    estimator_errors: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    for row in trajectory_error_rows:
+        estimator_errors[str(row.get("estimator", ""))].append(row)
+    for rows in estimator_errors.values():
+        rows.sort(key=lambda row: row.get("stamp", 0.0))
+
+    active_by_to_frame: Dict[int, List[Dict[str, Any]]] = defaultdict(list)
+    active_near_by_frame: Dict[int, List[Dict[str, Any]]] = defaultdict(list)
+    for row in parsed.get("glim_active_factor_diagnostic", []):
+        if row.get("direction") != "K2G":
+            continue
+        to_index = pose_index_from_token(row.get("local_to_key"))
+        if to_index is None:
+            continue
+        active_by_to_frame[to_index].append(row)
+        for near_index in range(to_index - 2, to_index + 3):
+            active_near_by_frame[near_index].append(row)
+
+    inject_by_to_frame: Counter[int] = Counter()
+    for row in parsed.get("glim_odom_inject", []):
+        if row.get("direction") != "K2G":
+            continue
+        _, to_index = edge_to_pose_indices(row.get("receiver_edge"))
+        if to_index is not None:
+            inject_by_to_frame[to_index] += 1
+
+    start_stamp = min(to_float(str(row.get("stamp", math.nan))) for row in scan_rows)
+    rows: List[Dict[str, Any]] = []
+    for scan in scan_rows:
+        stamp = to_float(str(scan.get("stamp", math.nan)))
+        frame_id = int(scan.get("frame_id")) if scan.get("frame_id") is not None else -1
+        pose = pose_rows.get(frame_id, {})
+        target = target_rows.get(frame_id, {})
+        glim_error = nearest_row_by_stamp(estimator_errors.get("glim", []), stamp)
+        kimera_error = nearest_row_by_stamp(estimator_errors.get("kimera", []), stamp)
+        active_exact = active_by_to_frame.get(frame_id, [])
+        active_near = active_near_by_frame.get(frame_id, [])
+
+        def active_stat(key: str, rows_: Sequence[Dict[str, Any]]) -> float:
+            return median_or_nan(to_float(str(row.get(key, math.nan))) for row in rows_)
+
+        rows.append(
+            {
+                "stamp": stamp,
+                "rel_sec": stamp - start_stamp,
+                "frame_id": frame_id,
+                "glim_ape_m": (
+                    to_float(str(glim_error.get("error_m", math.nan)))
+                    if glim_error
+                    else math.nan
+                ),
+                "kimera_nearest_ape_m": (
+                    to_float(str(kimera_error.get("error_m", math.nan)))
+                    if kimera_error
+                    else math.nan
+                ),
+                "kimera_nearest_dt_sec": (
+                    abs(stamp - to_float(str(kimera_error.get("stamp", math.nan))))
+                    if kimera_error
+                    else math.nan
+                ),
+                "preprocessed_points": scan.get("preprocessed_points", math.nan),
+                "scan_error_ratio": scan.get("scan_error_ratio", math.nan),
+                "scan_minus_imu_translation_m": scan.get(
+                    "scan_minus_imu_translation_m", math.nan
+                ),
+                "scan_minus_imu_rotation_deg": scan.get(
+                    "scan_minus_imu_rotation_deg", math.nan
+                ),
+                "scan_hessian_min_eigenvalue": scan.get(
+                    "scan_hessian_min_eigenvalue", math.nan
+                ),
+                "scan_hessian_condition_estimate": scan.get(
+                    "scan_hessian_condition_estimate", math.nan
+                ),
+                "scan_health_enable": scan.get("scan_health_enable", math.nan),
+                "scan_health_clamped": scan.get("scan_health_clamped", math.nan),
+                "effective_scan_precision": scan.get(
+                    "scan_health_effective_scan_precision", math.nan
+                ),
+                "smoother_minus_scan_translation_m": pose.get(
+                    "smoother_minus_scan_translation_m", math.nan
+                ),
+                "smoother_minus_scan_rotation_deg": pose.get(
+                    "smoother_minus_scan_rotation_deg", math.nan
+                ),
+                "smoother_minus_imu_translation_m": pose.get(
+                    "smoother_minus_imu_translation_m", math.nan
+                ),
+                "smoother_minus_imu_rotation_deg": pose.get(
+                    "smoother_minus_imu_rotation_deg", math.nan
+                ),
+                "target_update_action": target.get("action", ""),
+                "target_update_pose_source": target.get("pose_source", ""),
+                "target_update_scan_health_clamped": target.get(
+                    "scan_health_clamped", math.nan
+                ),
+                "target_update_scan_correction_translation_m": target.get(
+                    "scan_correction_translation_m", math.nan
+                ),
+                "target_update_scan_correction_rotation_deg": target.get(
+                    "scan_correction_rotation_deg", math.nan
+                ),
+                "k2g_injected_to_frame_count": inject_by_to_frame.get(frame_id, 0),
+                "k2g_active_to_frame_rows": len(active_exact),
+                "k2g_active_near_frame_rows": len(active_near),
+                "k2g_active_trans_residual_p50_m": active_stat(
+                    "trans_norm", active_exact
+                ),
+                "k2g_active_nis_p50": active_stat("nis", active_exact),
+                "k2g_active_cbs_hessian_p50": active_stat(
+                    "cbs_hessian_frobenius", active_exact
+                ),
+                "k2g_active_other_local_hessian_p50": active_stat(
+                    "other_local_hessian_sum", active_exact
+                ),
+            }
+        )
+    return rows
+
+
+def glim_frame_timeline_event_summary(rows: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    conditions = [
+        (
+            "points_lt_3000",
+            lambda row: to_float(str(row.get("preprocessed_points", math.nan))) < 3000.0,
+        ),
+        (
+            "scan_imu_translation_gt_0p15m",
+            lambda row: to_float(str(row.get("scan_minus_imu_translation_m", math.nan))) > 0.15,
+        ),
+        (
+            "scan_imu_rotation_gt_5deg",
+            lambda row: to_float(str(row.get("scan_minus_imu_rotation_deg", math.nan))) > 5.0,
+        ),
+        (
+            "scan_error_ratio_gt_1p05",
+            lambda row: to_float(str(row.get("scan_error_ratio", math.nan))) > 1.05,
+        ),
+        (
+            "k2g_not_active_near_frame",
+            lambda row: to_float(str(row.get("k2g_active_near_frame_rows", math.nan))) <= 0.0,
+        ),
+    ]
+    summary: List[Dict[str, Any]] = []
+    for name, predicate in conditions:
+        matches = [row for row in rows if predicate(row)]
+        if not matches:
+            summary.append({"condition": name, "count": 0})
+            continue
+        first = min(matches, key=lambda row: row.get("rel_sec", math.inf))
+        summary.append(
+            {
+                "condition": name,
+                "count": len(matches),
+                "first_rel_sec": first.get("rel_sec", math.nan),
+                "first_frame_id": first.get("frame_id", math.nan),
+                "first_glim_ape_m": first.get("glim_ape_m", math.nan),
+                "first_kimera_nearest_ape_m": first.get(
+                    "kimera_nearest_ape_m", math.nan
+                ),
+                "first_preprocessed_points": first.get(
+                    "preprocessed_points", math.nan
+                ),
+                "first_scan_imu_translation_m": first.get(
+                    "scan_minus_imu_translation_m", math.nan
+                ),
+                "first_scan_imu_rotation_deg": first.get(
+                    "scan_minus_imu_rotation_deg", math.nan
+                ),
+                "first_scan_error_ratio": first.get("scan_error_ratio", math.nan),
+                "first_target_update_pose_source": first.get(
+                    "target_update_pose_source", ""
+                ),
+                "first_k2g_injected_to_frame_count": first.get(
+                    "k2g_injected_to_frame_count", 0
+                ),
+                "first_k2g_active_near_frame_rows": first.get(
+                    "k2g_active_near_frame_rows", 0
+                ),
+            }
+        )
+    return summary
 
 
 def write_tum_poses(path: Path, poses: PoseTrajectory) -> None:
@@ -2261,6 +3348,246 @@ def timing_summary(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return summary
 
 
+def glim_scan_health_summary(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    if not rows:
+        return []
+
+    start_stamp = min(
+        (to_float(str(row.get("stamp", math.nan))) for row in rows),
+        default=math.nan,
+    )
+
+    def rel_sec(row: Dict[str, Any], key: str) -> float:
+        stamp = to_float(str(row.get(key, math.nan)))
+        if not math.isfinite(stamp) or not math.isfinite(start_stamp):
+            return math.nan
+        return stamp - start_stamp
+
+    def rel_at_min(key: str) -> float:
+        clean = [row for row in rows if math.isfinite(to_float(str(row.get(key, math.nan))))]
+        if not clean:
+            return math.nan
+        return rel_sec(min(clean, key=lambda row: to_float(str(row.get(key, math.nan)))), "stamp")
+
+    def rel_at_max(key: str) -> float:
+        clean = [row for row in rows if math.isfinite(to_float(str(row.get(key, math.nan))))]
+        if not clean:
+            return math.nan
+        return rel_sec(max(clean, key=lambda row: to_float(str(row.get(key, math.nan)))), "stamp")
+
+    points = [row.get("preprocessed_points", math.nan) for row in rows]
+    error_ratios = [row.get("scan_error_ratio", math.nan) for row in rows]
+    scan_imu_trans = [row.get("scan_minus_imu_translation_m", math.nan) for row in rows]
+    scan_imu_rot = [row.get("scan_minus_imu_rotation_deg", math.nan) for row in rows]
+    h_min = [row.get("scan_hessian_min_eigenvalue", math.nan) for row in rows]
+    h_cond = [row.get("scan_hessian_condition_estimate", math.nan) for row in rows]
+    h_rank = [row.get("scan_hessian_rank_estimate", math.nan) for row in rows]
+    health = [row.get("scan_health_clamped", math.nan) for row in rows]
+    raw_health = [row.get("scan_health_raw", math.nan) for row in rows]
+    effective_precision = [
+        row.get("scan_health_effective_scan_precision", math.nan) for row in rows
+    ]
+    base_precision = [
+        row.get("scan_health_base_scan_precision", math.nan) for row in rows
+    ]
+
+    return [
+        {
+            "count": len(rows),
+            "preprocessed_points_p50": percentile(points, 0.50),
+            "preprocessed_points_p05": percentile(points, 0.05),
+            "preprocessed_points_min": numeric_stats(points)["min"],
+            "preprocessed_points_below_3000_count": sum(
+                1 for value in points if math.isfinite(value) and value < 3000.0
+            ),
+            "min_preprocessed_points_rel_sec": rel_at_min("preprocessed_points"),
+            "scan_error_ratio_p50": percentile(error_ratios, 0.50),
+            "scan_error_ratio_p95": percentile(error_ratios, 0.95),
+            "scan_error_ratio_above_1_count": sum(
+                1 for value in error_ratios if math.isfinite(value) and value > 1.0
+            ),
+            "scan_minus_imu_translation_p50_m": percentile(scan_imu_trans, 0.50),
+            "scan_minus_imu_translation_p95_m": percentile(scan_imu_trans, 0.95),
+            "scan_minus_imu_translation_max_m": numeric_stats(scan_imu_trans)["max"],
+            "scan_minus_imu_translation_above_0p15m_count": sum(
+                1 for value in scan_imu_trans if math.isfinite(value) and value > 0.15
+            ),
+            "max_scan_minus_imu_translation_rel_sec": rel_at_max(
+                "scan_minus_imu_translation_m"
+            ),
+            "scan_minus_imu_rotation_p50_deg": percentile(scan_imu_rot, 0.50),
+            "scan_minus_imu_rotation_p95_deg": percentile(scan_imu_rot, 0.95),
+            "scan_minus_imu_rotation_max_deg": numeric_stats(scan_imu_rot)["max"],
+            "scan_minus_imu_rotation_above_5deg_count": sum(
+                1 for value in scan_imu_rot if math.isfinite(value) and value > 5.0
+            ),
+            "max_scan_minus_imu_rotation_rel_sec": rel_at_max(
+                "scan_minus_imu_rotation_deg"
+            ),
+            "scan_hessian_min_eigenvalue_p50": percentile(h_min, 0.50),
+            "scan_hessian_min_eigenvalue_min": numeric_stats(h_min)["min"],
+            "scan_hessian_condition_p50": percentile(h_cond, 0.50),
+            "scan_hessian_condition_p95": percentile(h_cond, 0.95),
+            "scan_hessian_condition_max": numeric_stats(h_cond)["max"],
+            "scan_hessian_rank_min": numeric_stats(h_rank)["min"],
+            "scan_health_enabled_count": sum(
+                1 for row in rows if to_int(str(row.get("scan_health_enable", 0))) != 0
+            ),
+            "scan_health_apply_local_count": sum(
+                1
+                for row in rows
+                if to_int(str(row.get("scan_health_apply_to_local_scan_precision", 0))) != 0
+            ),
+            "scan_health_hessian_enabled_count": sum(
+                1 for row in rows if to_int(str(row.get("scan_health_hessian_enable", 0))) != 0
+            ),
+            "scan_health_raw_p50": percentile(raw_health, 0.50),
+            "scan_health_raw_p05": percentile(raw_health, 0.05),
+            "scan_health_clamped_p50": percentile(health, 0.50),
+            "scan_health_clamped_min": numeric_stats(health)["min"],
+            "effective_scan_precision_p50": percentile(effective_precision, 0.50),
+            "effective_scan_precision_min": numeric_stats(effective_precision)["min"],
+            "base_scan_precision_p50": percentile(base_precision, 0.50),
+        }
+    ]
+
+
+def glim_active_factor_detail_summary(
+    rows_in: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    groups: Dict[Tuple[str, str, str], List[Dict[str, Any]]] = defaultdict(list)
+    for row in rows_in:
+        groups[
+            (
+                str(row.get("direction", "")),
+                str(row.get("category", "")),
+                str(row.get("factor_type", "")),
+            )
+        ].append(row)
+
+    rows: List[Dict[str, Any]] = []
+    for (direction, category, factor_type), values in sorted(groups.items()):
+        errors = [to_float(str(row.get("error", math.nan))) for row in values]
+        hessians = [
+            to_float(str(row.get("hessian_frobenius", math.nan))) for row in values
+        ]
+        key_counts = [to_float(str(row.get("key_count", math.nan))) for row in values]
+        rows.append(
+            {
+                "direction": direction,
+                "category": category,
+                "factor_type": factor_type,
+                "count": len(values),
+                "key_count_p50": percentile(key_counts, 0.50),
+                "error_p50": percentile(errors, 0.50),
+                "error_p95": percentile(errors, 0.95),
+                "error_sum": numeric_stats(errors)["sum"],
+                "hessian_frobenius_p50": percentile(hessians, 0.50),
+                "hessian_frobenius_p95": percentile(hessians, 0.95),
+                "hessian_frobenius_sum": numeric_stats(hessians)["sum"],
+            }
+        )
+    return rows
+
+
+def glim_pose_stage_summary(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    if not rows:
+        return []
+    return [
+        {
+            "count": len(rows),
+            "scan_minus_imu_translation_p50_m": percentile(
+                (row.get("scan_minus_imu_translation_m", math.nan) for row in rows),
+                0.50,
+            ),
+            "scan_minus_imu_translation_p95_m": percentile(
+                (row.get("scan_minus_imu_translation_m", math.nan) for row in rows),
+                0.95,
+            ),
+            "scan_minus_imu_translation_max_m": numeric_stats(
+                row.get("scan_minus_imu_translation_m", math.nan) for row in rows
+            )["max"],
+            "scan_minus_imu_rotation_p95_deg": percentile(
+                (row.get("scan_minus_imu_rotation_deg", math.nan) for row in rows),
+                0.95,
+            ),
+            "scan_minus_imu_rotation_max_deg": numeric_stats(
+                row.get("scan_minus_imu_rotation_deg", math.nan) for row in rows
+            )["max"],
+            "smoother_minus_scan_translation_p50_m": percentile(
+                (row.get("smoother_minus_scan_translation_m", math.nan) for row in rows),
+                0.50,
+            ),
+            "smoother_minus_scan_translation_p95_m": percentile(
+                (row.get("smoother_minus_scan_translation_m", math.nan) for row in rows),
+                0.95,
+            ),
+            "smoother_minus_scan_translation_max_m": numeric_stats(
+                row.get("smoother_minus_scan_translation_m", math.nan) for row in rows
+            )["max"],
+            "smoother_minus_imu_translation_p50_m": percentile(
+                (row.get("smoother_minus_imu_translation_m", math.nan) for row in rows),
+                0.50,
+            ),
+            "smoother_minus_imu_translation_p95_m": percentile(
+                (row.get("smoother_minus_imu_translation_m", math.nan) for row in rows),
+                0.95,
+            ),
+            "smoother_minus_imu_rotation_p95_deg": percentile(
+                (row.get("smoother_minus_imu_rotation_deg", math.nan) for row in rows),
+                0.95,
+            ),
+        }
+    ]
+
+
+def glim_active_factor_diagnostic_summary(
+    rows: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    by_direction: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        by_direction[str(row.get("direction", ""))].append(row)
+    summary: List[Dict[str, Any]] = []
+    for direction, values in sorted(by_direction.items()):
+        summary.append(
+            {
+                "direction": direction,
+                "count": len(values),
+                "active_age_p50_sec": percentile(
+                    (row.get("active_age_sec", math.nan) for row in values), 0.50
+                ),
+                "trans_residual_p50_m": percentile(
+                    (row.get("trans_norm", math.nan) for row in values), 0.50
+                ),
+                "trans_residual_p95_m": percentile(
+                    (row.get("trans_norm", math.nan) for row in values), 0.95
+                ),
+                "rot_residual_p95_rad": percentile(
+                    (row.get("rot_norm", math.nan) for row in values), 0.95
+                ),
+                "whitened_norm_p50": percentile(
+                    (row.get("whitened_norm", math.nan) for row in values), 0.50
+                ),
+                "nis_p50": percentile(
+                    (row.get("nis", math.nan) for row in values), 0.50
+                ),
+                "cbs_hessian_p50": percentile(
+                    (row.get("cbs_hessian_frobenius", math.nan) for row in values),
+                    0.50,
+                ),
+                "other_local_hessian_p50": percentile(
+                    (row.get("other_local_hessian_sum", math.nan) for row in values),
+                    0.50,
+                ),
+                "other_local_hessian_p95": percentile(
+                    (row.get("other_local_hessian_sum", math.nan) for row in values),
+                    0.95,
+                ),
+            }
+        )
+    return summary
+
+
 def covariance_summary(transport_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
     by_direction: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
@@ -2533,6 +3860,8 @@ def preinjection_residual_summary(rows_in: List[Dict[str, Any]]) -> List[Dict[st
         trans_values = [row.get("trans_norm", math.nan) for row in values]
         yaw_values = [abs(row.get("yaw_error_deg", math.nan)) for row in values]
         trace_values = [row.get("incoming_trace", math.nan) for row in values]
+        whitened_values = [row.get("whitened_norm", math.nan) for row in values]
+        nis_values = [row.get("nis", math.nan) for row in values]
         rows.append(
             {
                 "direction": direction,
@@ -2547,6 +3876,10 @@ def preinjection_residual_summary(rows_in: List[Dict[str, Any]]) -> List[Dict[st
                 "trans_max": numeric_stats(trans_values)["max"],
                 "abs_yaw_deg_p95": percentile(yaw_values, 0.95),
                 "incoming_trace_mean": numeric_stats(trace_values)["mean"],
+                "whitened_norm_p50": percentile(whitened_values, 0.50),
+                "whitened_norm_p95": percentile(whitened_values, 0.95),
+                "nis_p50": percentile(nis_values, 0.50),
+                "nis_p95": percentile(nis_values, 0.95),
             }
         )
     return rows
@@ -2569,6 +3902,51 @@ def belief_odom_summary(rows_in: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 "count": len(values),
                 "odom_trace_mean": numeric_stats(odom_traces)["mean"],
                 "odom_trace_p95": percentile(odom_traces, 0.95),
+            }
+        )
+    return rows
+
+
+def odom_relative_covariance_summary(rows_in: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    by_key: Dict[Tuple[str, str, str], List[Dict[str, Any]]] = defaultdict(list)
+    for row in rows_in:
+        by_key[
+            (
+                str(row.get("direction", "")),
+                str(row.get("mode", "")),
+                str(row.get("status", "")),
+            )
+        ].append(row)
+
+    for (direction, mode, status), values in sorted(by_key.items()):
+        old_traces = [row.get("trace_old_conditional", math.nan) for row in values]
+        new_traces = [row.get("trace_new_schur_relative", math.nan) for row in values]
+        ratios = [row.get("ratio_new_over_old", math.nan) for row in values]
+        eig_old_min = [row.get("eig_old_min", math.nan) for row in values]
+        eig_new_min = [row.get("eig_new_min", math.nan) for row in values]
+        h_to_rank = [row.get("H_to_rank", math.nan) for row in values]
+        h_to_condition = [row.get("H_to_condition_estimate", math.nan) for row in values]
+        schur_direct = [
+            row.get("schur_vs_direct_difference_norm", math.nan) for row in values
+        ]
+        jitter_count = sum(1 for row in values if row.get("jitter_used", 0))
+        rows.append(
+            {
+                "direction": direction,
+                "mode": mode,
+                "status": status,
+                "count": len(values),
+                "trace_old_p50": percentile(old_traces, 0.50),
+                "trace_new_p50": percentile(new_traces, 0.50),
+                "ratio_p50": percentile(ratios, 0.50),
+                "ratio_p95": percentile(ratios, 0.95),
+                "eig_old_min": numeric_stats(eig_old_min)["min"],
+                "eig_new_min": numeric_stats(eig_new_min)["min"],
+                "H_to_rank_min": numeric_stats(h_to_rank)["min"],
+                "H_to_condition_p95": percentile(h_to_condition, 0.95),
+                "schur_vs_direct_norm_max": numeric_stats(schur_direct)["max"],
+                "jitter_count": jitter_count,
             }
         )
     return rows
@@ -2619,6 +3997,7 @@ def health_sender_summary(rows_in: List[Dict[str, Any]]) -> List[Dict[str, Any]]
     for (direction, status), values in sorted(by_direction_status.items()):
         alphas = [row.get("alpha_health", math.nan) for row in values]
         raw_traces = [row.get("raw_rel_trace", math.nan) for row in values]
+        abs_traces = [row.get("abs_trace", math.nan) for row in values]
         final_traces = [row.get("final_trace", math.nan) for row in values]
         u_values = [row.get("u", math.nan) for row in values]
         u0_values = [row.get("u0", math.nan) for row in values]
@@ -2633,11 +4012,123 @@ def health_sender_summary(rows_in: List[Dict[str, Any]]) -> List[Dict[str, Any]]
                 "alpha_max": numeric_stats(alphas)["max"],
                 "raw_rel_trace_p50": percentile(raw_traces, 0.50),
                 "raw_rel_trace_p95": percentile(raw_traces, 0.95),
+                "abs_trace_p50": percentile(abs_traces, 0.50),
+                "abs_trace_p95": percentile(abs_traces, 0.95),
+                "abs_trace_max": numeric_stats(abs_traces)["max"],
                 "final_trace_p50": percentile(final_traces, 0.50),
                 "final_trace_p95": percentile(final_traces, 0.95),
                 "u_p95": percentile(u_values, 0.95),
                 "u0_p50": percentile(u0_values, 0.50),
                 "g_det_p95": percentile(g_det_values, 0.95),
+            }
+        )
+    return rows
+
+
+def health_flow_summary(parsed: Dict[str, Any]) -> List[Dict[str, Any]]:
+    directions = sorted(
+        set(
+            str(row.get("direction", ""))
+            for key in (
+                "health_sender",
+                "health_nis",
+                "belief_odom",
+                "glim_odom_inject",
+                "odom_match",
+                "bpsam_odom_add",
+                "odom_outgoing",
+            )
+            for row in parsed.get(key, [])
+            if str(row.get("direction", ""))
+        )
+    )
+    rows: List[Dict[str, Any]] = []
+    applied_statuses = {
+        "temporary_linear_odom_applied",
+        "persistent_odom_applied",
+        "active_window_temporary_odom_applied",
+        "temporary_linear_queued",
+    }
+    for direction in directions:
+        health_sender = [
+            row for row in parsed.get("health_sender", [])
+            if row.get("direction") == direction
+        ]
+        odom_outgoing = [
+            row for row in parsed.get("odom_outgoing", [])
+            if row.get("direction") == direction
+        ]
+        sent = len(health_sender) if health_sender else len(odom_outgoing)
+        sender_status = Counter(
+            str(row.get("status", "")) for row in health_sender
+        )
+        health_nis = [
+            row for row in parsed.get("health_nis", [])
+            if row.get("direction") == direction
+        ]
+        belief_odom = [
+            row for row in parsed.get("belief_odom", [])
+            if row.get("direction") == direction
+        ]
+        glim_odom_inject = [
+            row for row in parsed.get("glim_odom_inject", [])
+            if row.get("direction") == direction
+        ]
+        bpsam_odom_add = [
+            row for row in parsed.get("bpsam_odom_add", [])
+            if row.get("direction") == direction
+        ]
+        odom_match = [
+            row for row in parsed.get("odom_match", [])
+            if row.get("direction") == direction
+        ]
+        injected = sum(
+            1
+            for row in belief_odom
+            if str(row.get("status", "")) in applied_statuses
+        ) + sum(
+            1
+            for row in glim_odom_inject
+            if str(row.get("status", "")) in applied_statuses
+        )
+        duplicate_refused = sum(
+            1
+            for row in bpsam_odom_add
+            if "already_applied" in str(row.get("message", ""))
+        )
+        if duplicate_refused == 0:
+            duplicate_refused = sum(
+                1
+                for row in belief_odom
+                if "already_applied" in str(row.get("status", ""))
+            )
+        match_decisions = Counter(str(row.get("decision", "")) for row in odom_match)
+        dropped = sum(
+            count
+            for decision, count in match_decisions.items()
+            if decision.startswith("dropped") or decision == "duration_mismatch"
+        )
+        retry = sum(
+            count
+            for decision, count in match_decisions.items()
+            if decision.startswith("retry")
+        )
+        superseded = match_decisions.get(
+            "receiver_edge_superseded_by_better_candidate", 0
+        )
+        rows.append(
+            {
+                "direction": direction,
+                "sent_or_produced": sent,
+                "sender_ok": sender_status.get("ok", 0),
+                "sender_warmup": sender_status.get("warmup", 0),
+                "receiver_nis_checked": len(health_nis),
+                "injected": injected,
+                "duplicate_refused": duplicate_refused,
+                "dropped": dropped,
+                "matcher_retry": retry,
+                "superseded_candidate": superseded,
+                "injection_ratio_pct": 100.0 * injected / sent if sent else math.nan,
             }
         )
     return rows
@@ -2654,6 +4145,11 @@ def health_nis_summary(rows_in: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     for (direction, status), values in sorted(by_direction_status.items()):
         nus = [row.get("nu", math.nan) for row in values]
         alphas = [row.get("alpha_cons", math.nan) for row in values]
+        raw_alphas = [row.get("raw_alpha_cons", math.nan) for row in values]
+        trust_weights = [row.get("trust_weight", math.nan) for row in values]
+        trust_balances = [row.get("trust_balance", math.nan) for row in values]
+        sender_growth = [row.get("sender_uncertainty_growth", math.nan) for row in values]
+        receiver_growth = [row.get("receiver_uncertainty_growth", math.nan) for row in values]
         residuals = [row.get("residual_norm", math.nan) for row in values]
         trans = [row.get("trans_norm", math.nan) for row in values]
         final_traces = [row.get("final_trace", math.nan) for row in values]
@@ -2668,9 +4164,138 @@ def health_nis_summary(rows_in: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 "alpha_cons_p50": percentile(alphas, 0.50),
                 "alpha_cons_p95": percentile(alphas, 0.95),
                 "alpha_cons_max": numeric_stats(alphas)["max"],
+                "raw_alpha_cons_p95": percentile(raw_alphas, 0.95),
+                "trust_weight_p50": percentile(trust_weights, 0.50),
+                "trust_weight_p95": percentile(trust_weights, 0.95),
+                "trust_balance_p50": percentile(trust_balances, 0.50),
+                "sender_growth_p50": percentile(sender_growth, 0.50),
+                "receiver_growth_p50": percentile(receiver_growth, 0.50),
                 "residual_p95": percentile(residuals, 0.95),
                 "trans_p95": percentile(trans, 0.95),
                 "final_trace_p95": percentile(final_traces, 0.95),
+            }
+        )
+    return rows
+
+
+def factor_whitened_norm_iso(row: Dict[str, Any]) -> float:
+    residual = row.get("residual_norm", math.nan)
+    trace = row.get("final_trace", math.nan)
+    if not math.isfinite(residual) or not math.isfinite(trace) or trace <= 0.0:
+        return math.nan
+    return residual / math.sqrt(trace / 6.0)
+
+
+def factor_whitened_trans_norm_nominal(row: Dict[str, Any]) -> float:
+    trans = row.get("trans_norm", math.nan)
+    trace = row.get("final_trace", math.nan)
+    if not math.isfinite(trans) or not math.isfinite(trace) or trace <= 0.0:
+        return math.nan
+    floor_rot_trace = 3.0 * (0.017453292519943295 ** 2)
+    floor_trans_trace = 3.0 * (0.03 ** 2)
+    trans_fraction = floor_trans_trace / (floor_rot_trace + floor_trans_trace)
+    trans_trace = trans_fraction * trace
+    return trans / math.sqrt(trans_trace / 3.0)
+
+
+def factor_pull_summary(rows_in: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    by_direction_status: Dict[Tuple[str, str], List[Dict[str, Any]]] = defaultdict(list)
+    for row in rows_in:
+        by_direction_status[
+            (str(row.get("direction", "")), str(row.get("status", "")))
+        ].append(row)
+
+    for (direction, status), values in sorted(by_direction_status.items()):
+        residuals = [row.get("residual_norm", math.nan) for row in values]
+        nus = [row.get("nu", math.nan) for row in values]
+        alphas = [row.get("alpha_cons", math.nan) for row in values]
+        raw_alphas = [row.get("raw_alpha_cons", math.nan) for row in values]
+        trust_weights = [row.get("trust_weight", math.nan) for row in values]
+        traces = [row.get("final_trace", math.nan) for row in values]
+        wr_iso = [factor_whitened_norm_iso(row) for row in values]
+        wr_trans = [factor_whitened_trans_norm_nominal(row) for row in values]
+        rows.append(
+            {
+                "direction": direction,
+                "status": status,
+                "count": len(values),
+                "residual_p50": percentile(residuals, 0.50),
+                "residual_p95": percentile(residuals, 0.95),
+                "nu_p50": percentile(nus, 0.50),
+                "nu_p95": percentile(nus, 0.95),
+                "alpha_cons_p95": percentile(alphas, 0.95),
+                "raw_alpha_cons_p95": percentile(raw_alphas, 0.95),
+                "trust_weight_p50": percentile(trust_weights, 0.50),
+                "trust_weight_p95": percentile(trust_weights, 0.95),
+                "final_trace_p50": percentile(traces, 0.50),
+                "final_trace_p95": percentile(traces, 0.95),
+                "factor_wr_iso_p50": percentile(wr_iso, 0.50),
+                "factor_wr_iso_p95": percentile(wr_iso, 0.95),
+                "factor_wr_trans_nominal_p95": percentile(wr_trans, 0.95),
+            }
+        )
+    return rows
+
+
+def temporary_postsolve_pull_summary(
+    pre_rows: List[Dict[str, Any]],
+    post_rows: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    pre_by_key: Dict[Tuple[str, str], Dict[str, Any]] = {}
+    for row in pre_rows:
+        direction = str(row.get("direction", ""))
+        belief_key = str(row.get("belief_key", ""))
+        if direction and belief_key:
+            pre_by_key[(direction, belief_key)] = row
+
+    by_direction_action: Dict[Tuple[str, str], List[Dict[str, Any]]] = defaultdict(list)
+    for post in post_rows:
+        direction = str(post.get("direction", ""))
+        belief_key = str(post.get("belief_key", ""))
+        pre = pre_by_key.get((direction, belief_key))
+        if not pre:
+            continue
+        pre_res = pre.get("residual_norm", math.nan)
+        post_res = post.get("residual_norm", math.nan)
+        if not math.isfinite(pre_res) or not math.isfinite(post_res):
+            continue
+        action = str(post.get("action", ""))
+        row = {
+            "direction": direction,
+            "action": action,
+            "pre_residual": pre_res,
+            "post_residual": post_res,
+            "residual_delta": pre_res - post_res,
+            "residual_ratio": post_res / pre_res if pre_res > 0.0 else math.nan,
+        }
+        by_direction_action[(direction, action)].append(row)
+
+    rows: List[Dict[str, Any]] = []
+    for (direction, action), values in sorted(by_direction_action.items()):
+        pre_values = [row["pre_residual"] for row in values]
+        post_values = [row["post_residual"] for row in values]
+        deltas = [row["residual_delta"] for row in values]
+        ratios = [row["residual_ratio"] for row in values]
+        rows.append(
+            {
+                "direction": direction,
+                "action": action,
+                "count": len(values),
+                "pre_residual_p50": percentile(pre_values, 0.50),
+                "pre_residual_p95": percentile(pre_values, 0.95),
+                "post_residual_p50": percentile(post_values, 0.50),
+                "post_residual_p95": percentile(post_values, 0.95),
+                "residual_delta_p50": percentile(deltas, 0.50),
+                "residual_delta_p95": percentile(deltas, 0.95),
+                "residual_ratio_p50": percentile(ratios, 0.50),
+                "residual_ratio_p95": percentile(ratios, 0.95),
+                "improved_pct": (
+                    100.0 * sum(1 for row in values if row["residual_delta"] > 0.0)
+                    / len(values)
+                    if values
+                    else math.nan
+                ),
             }
         )
     return rows
@@ -2893,6 +4518,13 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
 
     parsed = parse_log_artifacts([run_dir / "roslaunch.log"])
     trajectory_rows = compute_trajectory_metrics(run_dir, gt_path) if gt_path else []
+    trajectory_timeline_rows = (
+        trajectory_error_timeline(run_dir, gt_path) if gt_path else []
+    )
+    glim_frame_timeline_rows = glim_frame_timeline(parsed, trajectory_timeline_rows)
+    glim_frame_timeline_event_rows = glim_frame_timeline_event_summary(
+        glim_frame_timeline_rows
+    )
     evo_rows = run_evo_metrics(run_dir, gt_path) if gt_path else []
     cov_rows = covariance_summary(parsed["transport"])
     roundtrip_rows = roundtrip_summary(parsed["roundtrip"])
@@ -2909,6 +4541,9 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
         parsed["odom_temporary_postsolve_residual"]
     )
     belief_odom_rows = belief_odom_summary(parsed["belief_odom"])
+    odom_relative_covariance_rows = odom_relative_covariance_summary(
+        parsed["odom_relative_covariance"]
+    )
     temporary_linearization_residual_rows = preinjection_residual_summary(
         parsed["temporary_linearization_residual"]
     )
@@ -2917,6 +4552,12 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
     )
     health_sender_rows = health_sender_summary(parsed["health_sender"])
     health_nis_rows = health_nis_summary(parsed["health_nis"])
+    health_flow_rows = health_flow_summary(parsed)
+    factor_pull_rows = factor_pull_summary(parsed["health_nis"])
+    temporary_postsolve_pull_rows = temporary_postsolve_pull_summary(
+        parsed["preinjection_residual"],
+        parsed["odom_temporary_postsolve_residual"],
+    )
     odom_factor_covariance_sample_rows = odom_factor_covariance_samples(
         parsed["odom_factor_covariance"],
         sample_limit=30,
@@ -2926,6 +4567,19 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
     )
     timing_summary_rows = timing_summary(parsed["timing"])
     glim_timing_summary_rows = timing_summary(parsed["glim_timing"])
+    glim_scan_health_summary_rows = glim_scan_health_summary(
+        parsed["glim_scan_health"]
+    )
+    glim_pose_stage_summary_rows = glim_pose_stage_summary(parsed["glim_pose_stage"])
+    glim_active_factor_diagnostic_summary_rows = (
+        glim_active_factor_diagnostic_summary(parsed["glim_active_factor_diagnostic"])
+    )
+    glim_active_factor_detail_summary_rows = glim_active_factor_detail_summary(
+        parsed["glim_active_factor_detail"]
+    )
+    kimera_active_factor_diagnostic_summary_rows = (
+        glim_active_factor_diagnostic_summary(parsed["kimera_active_factor_diagnostic"])
+    )
     duration_sec = to_float(str(manifest.get("duration_sec", math.nan)))
     odom_outgoing_rate_rows = rate_summary(
         parsed["odom_outgoing"], "direction", duration_sec
@@ -2993,6 +4647,30 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
         parsed["health_nis"],
     )
     write_dicts_csv(
+        artifacts_dir / "glim_receiver_covariance.csv",
+        parsed["glim_receiver_covariance"],
+    )
+    write_dicts_csv(
+        artifacts_dir / "glim_cbs_active_factor_diagnostics.csv",
+        parsed["glim_active_factor_diagnostic"],
+    )
+    write_dicts_csv(
+        artifacts_dir / "glim_cbs_active_factor_details.csv",
+        parsed["glim_active_factor_detail"],
+    )
+    write_dicts_csv(
+        artifacts_dir / "kimera_cbs_active_factor_diagnostics.csv",
+        parsed["kimera_active_factor_diagnostic"],
+    )
+    write_dicts_csv(
+        artifacts_dir / "glim_pose_stage.csv",
+        parsed["glim_pose_stage"],
+    )
+    write_dicts_csv(
+        artifacts_dir / "glim_target_update.csv",
+        parsed["glim_target_update"],
+    )
+    write_dicts_csv(
         artifacts_dir / "cbs_temporary_linearization_residuals.csv",
         parsed["temporary_linearization_residual"],
     )
@@ -3007,7 +4685,23 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
     write_dicts_csv(artifacts_dir / "glim_odom_flow.csv", parsed["glim_odom_flow"])
     write_dicts_csv(artifacts_dir / "kimera_timing_rows.csv", parsed["timing"])
     write_dicts_csv(artifacts_dir / "glim_timing_rows.csv", parsed["glim_timing"])
+    write_dicts_csv(
+        artifacts_dir / "glim_scan_health.csv",
+        parsed["glim_scan_health"],
+    )
     write_dicts_csv(artifacts_dir / "trajectory_metrics.csv", trajectory_rows)
+    write_dicts_csv(
+        artifacts_dir / "trajectory_error_timeline.csv",
+        trajectory_timeline_rows,
+    )
+    write_dicts_csv(
+        artifacts_dir / "glim_frame_timeline.csv",
+        glim_frame_timeline_rows,
+    )
+    write_dicts_csv(
+        artifacts_dir / "glim_frame_timeline_event_summary.csv",
+        glim_frame_timeline_event_rows,
+    )
     write_dicts_csv(artifacts_dir / "evo_metrics.csv", evo_rows)
     write_dicts_csv(artifacts_dir / "covariance_summary.csv", cov_rows)
     write_dicts_csv(artifacts_dir / "roundtrip_summary.csv", roundtrip_rows)
@@ -3050,6 +4744,18 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
         health_nis_rows,
     )
     write_dicts_csv(
+        artifacts_dir / "cbs_health_flow_summary.csv",
+        health_flow_rows,
+    )
+    write_dicts_csv(
+        artifacts_dir / "cbs_factor_pull_summary.csv",
+        factor_pull_rows,
+    )
+    write_dicts_csv(
+        artifacts_dir / "cbs_temporary_postsolve_pull_summary.csv",
+        temporary_postsolve_pull_rows,
+    )
+    write_dicts_csv(
         artifacts_dir / "odom_factor_covariance_samples.csv",
         odom_factor_covariance_sample_rows,
     )
@@ -3059,6 +4765,26 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
     )
     write_dicts_csv(artifacts_dir / "kimera_timing_summary.csv", timing_summary_rows)
     write_dicts_csv(artifacts_dir / "glim_timing_summary.csv", glim_timing_summary_rows)
+    write_dicts_csv(
+        artifacts_dir / "glim_scan_health_summary.csv",
+        glim_scan_health_summary_rows,
+    )
+    write_dicts_csv(
+        artifacts_dir / "glim_pose_stage_summary.csv",
+        glim_pose_stage_summary_rows,
+    )
+    write_dicts_csv(
+        artifacts_dir / "glim_cbs_active_factor_diagnostic_summary.csv",
+        glim_active_factor_diagnostic_summary_rows,
+    )
+    write_dicts_csv(
+        artifacts_dir / "glim_cbs_active_factor_detail_summary.csv",
+        glim_active_factor_detail_summary_rows,
+    )
+    write_dicts_csv(
+        artifacts_dir / "kimera_cbs_active_factor_diagnostic_summary.csv",
+        kimera_active_factor_diagnostic_summary_rows,
+    )
     write_dicts_csv(
         artifacts_dir / "odom_outgoing_rate_summary.csv",
         odom_outgoing_rate_rows,
@@ -3154,6 +4880,9 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
         "glim_odom_flow_totals": sum_kimera_flow(parsed["glim_odom_flow"]),
         "alignment": parsed["alignment"],
         "trajectory_metrics": trajectory_rows,
+        "trajectory_error_timeline_count": len(trajectory_timeline_rows),
+        "glim_frame_timeline_count": len(glim_frame_timeline_rows),
+        "glim_frame_timeline_event_summary": glim_frame_timeline_event_rows,
         "evo_metrics": evo_rows,
         "covariance_summary": cov_rows,
         "roundtrip_summary": roundtrip_rows,
@@ -3164,14 +4893,23 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
         "preinjection_residual_summary": preinjection_residual_rows,
         "odom_temporary_postsolve_residual_summary": odom_temporary_postsolve_residual_rows,
         "belief_odom_summary": belief_odom_rows,
+        "odom_relative_covariance_summary": odom_relative_covariance_rows,
         "temporary_linearization_residual_summary": temporary_linearization_residual_rows,
         "odom_factor_covariance_summary": odom_factor_covariance_rows,
         "health_sender_summary": health_sender_rows,
         "health_nis_summary": health_nis_rows,
+        "health_flow_summary": health_flow_rows,
+        "factor_pull_summary": factor_pull_rows,
+        "temporary_postsolve_pull_summary": temporary_postsolve_pull_rows,
         "odom_factor_covariance_samples": odom_factor_covariance_sample_rows,
         "marginalization_graph_summary": marginalization_graph_rows,
         "kimera_timing_summary": timing_summary_rows,
         "glim_timing_summary": glim_timing_summary_rows,
+        "glim_scan_health_summary": glim_scan_health_summary_rows,
+        "glim_pose_stage_summary": glim_pose_stage_summary_rows,
+        "glim_active_factor_diagnostic_summary": glim_active_factor_diagnostic_summary_rows,
+        "glim_active_factor_detail_summary": glim_active_factor_detail_summary_rows,
+        "kimera_active_factor_diagnostic_summary": kimera_active_factor_diagnostic_summary_rows,
         "injected_belief_covariance_samples": injected_cov_rows,
         "skipped_log_rows": parsed["skipped_rows"],
     }
@@ -3191,6 +4929,7 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
     lines.append(f"- Finished: `{summary.get('finished_at')}`")
     lines.append(f"- Roslaunch return code: `{summary.get('roslaunch_returncode')}`")
     lines.append(f"- Experiment profile: `{manifest.get('experiment_profile', 'n/a')}`")
+    lines.append(f"- CBS mode preset: `{manifest.get('cbs_mode_preset') or 'custom'}`")
     lines.append(f"- Bag: `{launch_args.get('bag_path', 'n/a')}`")
     lines.append(f"- Duration: `{launch_args.get('bag_duration', 'n/a')} s`")
     lines.append(f"- Ground truth: `{manifest.get('ground_truth', 'n/a')}`")
@@ -3217,6 +4956,7 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
             row["samples"],
             row["reference_matches"],
             row["path_length_m"],
+            row.get("reference_path_length_m", math.nan),
             row["position_rmse_m"],
             row["position_mean_error_m"],
             row["position_max_error_m"],
@@ -3226,10 +4966,68 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
     ]
     lines.append(
         markdown_table(
-            ["metric", "samples", "matches", "path m", "rmse m", "mean m", "max m", "yaw deg"],
+            [
+                "metric",
+                "samples",
+                "matches",
+                "path m",
+                "ref path m",
+                "rmse m",
+                "mean m",
+                "max m",
+                "yaw deg",
+            ],
             traj_rows,
         )
     )
+
+    frame_events = summary.get("glim_frame_timeline_event_summary", [])
+    if frame_events:
+        lines.append("## GLIM Frame Timeline Events\n")
+        lines.append(
+            "First-trigger rows are derived from `parsed/glim_frame_timeline.csv`, "
+            "which joins GLIM/Kimera trajectory error, scan health, target-update "
+            "source, pose-stage deltas, and K2G activity per GLIM frame. Trajectory "
+            "errors in this table use the same SE2 yaw+translation alignment as "
+            "`trajectory_metrics.csv`.\n"
+        )
+        lines.append(
+            markdown_table(
+                [
+                    "condition",
+                    "count",
+                    "first rel s",
+                    "frame",
+                    "GLIM err",
+                    "Kimera err",
+                    "points",
+                    "scan/IMU t",
+                    "scan/IMU R",
+                    "err ratio",
+                    "target source",
+                    "K2G injected",
+                    "K2G near rows",
+                ],
+                [
+                    [
+                        row.get("condition", ""),
+                        row.get("count", 0),
+                        row.get("first_rel_sec", math.nan),
+                        row.get("first_frame_id", math.nan),
+                        row.get("first_glim_ape_m", math.nan),
+                        row.get("first_kimera_nearest_ape_m", math.nan),
+                        row.get("first_preprocessed_points", math.nan),
+                        row.get("first_scan_imu_translation_m", math.nan),
+                        row.get("first_scan_imu_rotation_deg", math.nan),
+                        row.get("first_scan_error_ratio", math.nan),
+                        row.get("first_target_update_pose_source", ""),
+                        row.get("first_k2g_injected_to_frame_count", 0),
+                        row.get("first_k2g_active_near_frame_rows", 0),
+                    ]
+                    for row in frame_events
+                ],
+            )
+        )
 
     lines.append("## Evo Metrics\n")
     evo_rows = [
@@ -3445,6 +5243,54 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
             )
         )
 
+    odom_rel_cov = summary.get("odom_relative_covariance_summary", [])
+    if odom_rel_cov:
+        lines.append("## Relative Odometry Covariance Diagnostics\n")
+        lines.append(
+            "Sender-side relative covariance diagnostics compare the old "
+            "conditional-to-pose covariance against the Schur-relative covariance "
+            "used for outgoing odometry beliefs.\n"
+        )
+        lines.append(
+            markdown_table(
+                [
+                    "direction",
+                    "mode",
+                    "status",
+                    "count",
+                    "old trace p50",
+                    "new trace p50",
+                    "ratio p50",
+                    "ratio p95",
+                    "old eig min",
+                    "new eig min",
+                    "H_to rank min",
+                    "H_to cond p95",
+                    "Schur-direct max",
+                    "jitter",
+                ],
+                [
+                    [
+                        row.get("direction", ""),
+                        row.get("mode", ""),
+                        row.get("status", ""),
+                        row.get("count", 0),
+                        row.get("trace_old_p50", math.nan),
+                        row.get("trace_new_p50", math.nan),
+                        row.get("ratio_p50", math.nan),
+                        row.get("ratio_p95", math.nan),
+                        row.get("eig_old_min", math.nan),
+                        row.get("eig_new_min", math.nan),
+                        row.get("H_to_rank_min", math.nan),
+                        row.get("H_to_condition_p95", math.nan),
+                        row.get("schur_vs_direct_norm_max", math.nan),
+                        row.get("jitter_count", 0),
+                    ]
+                    for row in odom_rel_cov
+                ],
+            )
+        )
+
     preinj = summary.get("preinjection_residual_summary", [])
     if preinj:
         lines.append("## Pre-Injection Residuals\n")
@@ -3530,6 +5376,46 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
                         row.get("incoming_trace_mean", math.nan),
                     ]
                     for row in postsolve
+                ],
+            )
+        )
+
+    postsolve_pull = summary.get("temporary_postsolve_pull_summary", [])
+    if postsolve_pull:
+        lines.append("## Temporary CBS Pull Effect\n")
+        lines.append(
+            "These rows match each temporary odometry belief before insertion and "
+            "after the temporary linear delta solve. Positive `delta` means the "
+            "CBS residual decreased during that update; `ratio` is post/pre.\n"
+        )
+        lines.append(
+            markdown_table(
+                [
+                    "direction",
+                    "action",
+                    "count",
+                    "pre p50",
+                    "post p50",
+                    "delta p50",
+                    "delta p95",
+                    "ratio p50",
+                    "ratio p95",
+                    "improved %",
+                ],
+                [
+                    [
+                        row.get("direction", ""),
+                        row.get("action", ""),
+                        row.get("count", 0),
+                        row.get("pre_residual_p50", math.nan),
+                        row.get("post_residual_p50", math.nan),
+                        row.get("residual_delta_p50", math.nan),
+                        row.get("residual_delta_p95", math.nan),
+                        row.get("residual_ratio_p50", math.nan),
+                        row.get("residual_ratio_p95", math.nan),
+                        row.get("improved_pct", math.nan),
+                    ]
+                    for row in postsolve_pull
                 ],
             )
         )
@@ -3709,6 +5595,49 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
             )
         )
 
+    health_flow = summary.get("health_flow_summary", [])
+    if health_flow:
+        lines.append("### CBS health belief flow\n")
+        lines.append(
+            "These rows summarize the health-aware odometry belief pipeline. "
+            "`sent` is sender-produced beliefs, `NIS` is receiver-side "
+            "consistency checks, and `injected` is accepted CBS odometry "
+            "factors.\n"
+        )
+        lines.append(
+            markdown_table(
+                [
+                    "direction",
+                    "sent",
+                    "sender ok",
+                    "warmup",
+                    "NIS",
+                    "injected",
+                    "duplicate refused",
+                    "dropped",
+                    "retry",
+                    "superseded",
+                    "inject %",
+                ],
+                [
+                    [
+                        row.get("direction", ""),
+                        row.get("sent_or_produced", 0),
+                        row.get("sender_ok", 0),
+                        row.get("sender_warmup", 0),
+                        row.get("receiver_nis_checked", 0),
+                        row.get("injected", 0),
+                        row.get("duplicate_refused", 0),
+                        row.get("dropped", 0),
+                        row.get("matcher_retry", 0),
+                        row.get("superseded_candidate", 0),
+                        row.get("injection_ratio_pct", math.nan),
+                    ]
+                    for row in health_flow
+                ],
+            )
+        )
+
     health_sender = summary.get("health_sender_summary", [])
     if health_sender:
         lines.append("### Health-aware sender scaling\n")
@@ -3726,6 +5655,7 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
                     "alpha p95",
                     "alpha max",
                     "raw trace p95",
+                    "abs trace p95",
                     "final trace p95",
                     "u p95",
                     "g_det p95",
@@ -3739,6 +5669,7 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
                         row.get("alpha_p95", math.nan),
                         row.get("alpha_max", math.nan),
                         row.get("raw_rel_trace_p95", math.nan),
+                        row.get("abs_trace_p95", math.nan),
                         row.get("final_trace_p95", math.nan),
                         row.get("u_p95", math.nan),
                         row.get("g_det_p95", math.nan),
@@ -3754,7 +5685,9 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
         lines.append(
             "These rows summarize receiver-side innovation checks. "
             "`alpha_cons > 1` means the incoming factor covariance was inflated "
-            "because the relative-pose residual was larger than expected.\n"
+            "because the relative-pose residual was larger than expected. "
+            "`trust w` is the optional relative-trust multiplier applied to "
+            "that extra inflation.\n"
         )
         lines.append(
             markdown_table(
@@ -3768,6 +5701,12 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
                     "alpha p50",
                     "alpha p95",
                     "alpha max",
+                    "raw alpha p95",
+                    "trust w p50",
+                    "trust w p95",
+                    "trust bal p50",
+                    "sender growth p50",
+                    "receiver growth p50",
                     "trans p95",
                     "final trace p95",
                 ],
@@ -3782,10 +5721,70 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
                         row.get("alpha_cons_p50", math.nan),
                         row.get("alpha_cons_p95", math.nan),
                         row.get("alpha_cons_max", math.nan),
+                        row.get("raw_alpha_cons_p95", math.nan),
+                        row.get("trust_weight_p50", math.nan),
+                        row.get("trust_weight_p95", math.nan),
+                        row.get("trust_balance_p50", math.nan),
+                        row.get("sender_growth_p50", math.nan),
+                        row.get("receiver_growth_p50", math.nan),
                         row.get("trans_p95", math.nan),
                         row.get("final_trace_p95", math.nan),
                     ]
                     for row in health_nis
+                ],
+            )
+        )
+
+    factor_pull = summary.get("factor_pull_summary", [])
+    if factor_pull:
+        lines.append("### CBS factor pull estimate\n")
+        lines.append(
+            "`wr iso` estimates the residual norm whitened by the final factor "
+            "covariance using `sqrt(trace/6)`. `wr trans` is a translation-only "
+            "estimate using the nominal CBS pose-floor rotation/translation "
+            "trace split. These are diagnostic approximations; exact whitening "
+            "depends on the full 6x6 covariance.\n"
+        )
+        lines.append(
+            markdown_table(
+                [
+                    "direction",
+                    "status",
+                    "count",
+                    "res p50",
+                    "res p95",
+                    "nu p50",
+                    "nu p95",
+                    "alpha p95",
+                    "raw alpha p95",
+                    "trust w p50",
+                    "trust w p95",
+                    "wr iso p50",
+                    "wr iso p95",
+                    "wr trans p95",
+                    "trace p50",
+                    "trace p95",
+                ],
+                [
+                    [
+                        row.get("direction", ""),
+                        row.get("status", ""),
+                        row.get("count", 0),
+                        row.get("residual_p50", math.nan),
+                        row.get("residual_p95", math.nan),
+                        row.get("nu_p50", math.nan),
+                        row.get("nu_p95", math.nan),
+                        row.get("alpha_cons_p95", math.nan),
+                        row.get("raw_alpha_cons_p95", math.nan),
+                        row.get("trust_weight_p50", math.nan),
+                        row.get("trust_weight_p95", math.nan),
+                        row.get("factor_wr_iso_p50", math.nan),
+                        row.get("factor_wr_iso_p95", math.nan),
+                        row.get("factor_wr_trans_nominal_p95", math.nan),
+                        row.get("final_trace_p50", math.nan),
+                        row.get("final_trace_p95", math.nan),
+                    ]
+                    for row in factor_pull
                 ],
             )
         )
@@ -3908,6 +5907,249 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
                         row.get("max_ms", math.nan),
                     ]
                     for row in rows
+                ],
+            )
+        )
+
+    active_factor_details = summary.get("glim_active_factor_detail_summary", [])
+    if active_factor_details:
+        lines.append("## GLIM Active Factor Details\n")
+        lines.append(
+            "Rows are parsed from `GLIM_CBS_ACTIVE_FACTOR_DETAIL_ROW`; "
+            "raw rows are saved in `parsed/glim_cbs_active_factor_details.csv`.\n"
+        )
+        rows = sorted(
+            active_factor_details,
+            key=lambda row: float(row.get("hessian_frobenius_sum", 0.0) or 0.0),
+            reverse=True,
+        )
+        lines.append(
+            markdown_table(
+                [
+                    "direction",
+                    "category",
+                    "factor type",
+                    "count",
+                    "keys p50",
+                    "err p50",
+                    "err p95",
+                    "H p50",
+                    "H p95",
+                    "H sum",
+                ],
+                [
+                    [
+                        row.get("direction", ""),
+                        row.get("category", ""),
+                        row.get("factor_type", ""),
+                        row.get("count", 0),
+                        row.get("key_count_p50", math.nan),
+                        row.get("error_p50", math.nan),
+                        row.get("error_p95", math.nan),
+                        row.get("hessian_frobenius_p50", math.nan),
+                        row.get("hessian_frobenius_p95", math.nan),
+                        row.get("hessian_frobenius_sum", math.nan),
+                    ]
+                    for row in rows
+                ],
+            )
+        )
+
+    pose_stage = summary.get("glim_pose_stage_summary", [])
+    if pose_stage:
+        lines.append("## GLIM Pose Stage\n")
+        lines.append(
+            "Rows are parsed from `GLIM_POSE_STAGE_ROW`; full rows are saved in "
+            "`parsed/glim_pose_stage.csv`. This compares the IMU-predicted pose, "
+            "scan-matched pose, and final fixed-lag smoother pose per LiDAR frame.\n"
+        )
+        lines.append(
+            markdown_table(
+                [
+                    "count",
+                    "scan-IMU t p50",
+                    "scan-IMU t p95",
+                    "scan-IMU t max",
+                    "scan-IMU R p95",
+                    "scan-IMU R max",
+                    "smooth-scan t p50",
+                    "smooth-scan t p95",
+                    "smooth-scan t max",
+                    "smooth-IMU t p50",
+                    "smooth-IMU t p95",
+                    "smooth-IMU R p95",
+                ],
+                [
+                    [
+                        row.get("count", 0),
+                        row.get("scan_minus_imu_translation_p50_m", math.nan),
+                        row.get("scan_minus_imu_translation_p95_m", math.nan),
+                        row.get("scan_minus_imu_translation_max_m", math.nan),
+                        row.get("scan_minus_imu_rotation_p95_deg", math.nan),
+                        row.get("scan_minus_imu_rotation_max_deg", math.nan),
+                        row.get("smoother_minus_scan_translation_p50_m", math.nan),
+                        row.get("smoother_minus_scan_translation_p95_m", math.nan),
+                        row.get("smoother_minus_scan_translation_max_m", math.nan),
+                        row.get("smoother_minus_imu_translation_p50_m", math.nan),
+                        row.get("smoother_minus_imu_translation_p95_m", math.nan),
+                        row.get("smoother_minus_imu_rotation_p95_deg", math.nan),
+                    ]
+                    for row in pose_stage
+                ],
+            )
+        )
+
+    active_factor_diag = summary.get("glim_active_factor_diagnostic_summary", [])
+    if active_factor_diag:
+        lines.append("## GLIM Active CBS Factor Diagnostics\n")
+        lines.append(
+            "Rows are parsed from `GLIM_CBS_ACTIVE_FACTOR_DIAGNOSTIC_ROW`; full "
+            "rows are saved in `parsed/glim_cbs_active_factor_diagnostics.csv`. "
+            "Residuals are evaluated on the post-solve GLIM smoother estimate.\n"
+        )
+        lines.append(
+            markdown_table(
+                [
+                    "direction",
+                    "count",
+                    "age p50 s",
+                    "trans res p50",
+                    "trans res p95",
+                    "rot res p95",
+                    "white p50",
+                    "NIS p50",
+                    "CBS H p50",
+                    "other local H p50",
+                    "other local H p95",
+                ],
+                [
+                    [
+                        row.get("direction", ""),
+                        row.get("count", 0),
+                        row.get("active_age_p50_sec", math.nan),
+                        row.get("trans_residual_p50_m", math.nan),
+                        row.get("trans_residual_p95_m", math.nan),
+                        row.get("rot_residual_p95_rad", math.nan),
+                        row.get("whitened_norm_p50", math.nan),
+                        row.get("nis_p50", math.nan),
+                        row.get("cbs_hessian_p50", math.nan),
+                        row.get("other_local_hessian_p50", math.nan),
+                        row.get("other_local_hessian_p95", math.nan),
+                    ]
+                    for row in active_factor_diag
+                ],
+            )
+        )
+
+    kimera_active_factor_diag = summary.get(
+        "kimera_active_factor_diagnostic_summary", []
+    )
+    if kimera_active_factor_diag:
+        lines.append("## Kimera Active CBS Factor Diagnostics\n")
+        lines.append(
+            "Rows are parsed from `KIMERA_CBS_ACTIVE_FACTOR_DIAGNOSTIC_ROW`; full "
+            "rows are saved in `parsed/kimera_cbs_active_factor_diagnostics.csv`. "
+            "Residuals and Hessian buckets are evaluated on the post-solve Kimera "
+            "BPSAM estimate.\n"
+        )
+        lines.append(
+            markdown_table(
+                [
+                    "direction",
+                    "count",
+                    "age p50 s",
+                    "trans res p50",
+                    "trans res p95",
+                    "rot res p95",
+                    "white p50",
+                    "NIS p50",
+                    "CBS H p50",
+                    "other local H p50",
+                    "other local H p95",
+                ],
+                [
+                    [
+                        row.get("direction", ""),
+                        row.get("count", 0),
+                        row.get("active_age_p50_sec", math.nan),
+                        row.get("trans_residual_p50_m", math.nan),
+                        row.get("trans_residual_p95_m", math.nan),
+                        row.get("rot_residual_p95_rad", math.nan),
+                        row.get("whitened_norm_p50", math.nan),
+                        row.get("nis_p50", math.nan),
+                        row.get("cbs_hessian_p50", math.nan),
+                        row.get("other_local_hessian_p50", math.nan),
+                        row.get("other_local_hessian_p95", math.nan),
+                    ]
+                    for row in kimera_active_factor_diag
+                ],
+            )
+        )
+
+    glim_scan_health = summary.get("glim_scan_health_summary", [])
+    if glim_scan_health:
+        lines.append("## GLIM Scan Health\n")
+        lines.append(
+            "Rows are parsed from `GLIM_SCAN_HEALTH_ROW` in `roslaunch.log`; "
+            "full raw rows are saved in `parsed/glim_scan_health.csv`. "
+            "Threshold counts are diagnostics only and do not change estimator behavior.\n"
+        )
+        lines.append(
+            markdown_table(
+                [
+                    "count",
+                    "pts p50",
+                    "pts min",
+                    "pts <3000",
+                    "min pts rel s",
+                    "scan/IMU trans p95",
+                    "scan/IMU trans max",
+                    "trans >0.15m",
+                    "scan/IMU rot p95",
+                    "scan/IMU rot max",
+                    "rot >5deg",
+                    "err ratio p95",
+                    "err ratio >1",
+                    "H min eig min",
+                    "H cond p95",
+                    "H rank min",
+                    "health flags E/A/H",
+                    "health p50/min",
+                    "effective precision p50/min",
+                ],
+                [
+                    [
+                        row.get("count", 0),
+                        row.get("preprocessed_points_p50", math.nan),
+                        row.get("preprocessed_points_min", math.nan),
+                        row.get("preprocessed_points_below_3000_count", 0),
+                        row.get("min_preprocessed_points_rel_sec", math.nan),
+                        row.get("scan_minus_imu_translation_p95_m", math.nan),
+                        row.get("scan_minus_imu_translation_max_m", math.nan),
+                        row.get("scan_minus_imu_translation_above_0p15m_count", 0),
+                        row.get("scan_minus_imu_rotation_p95_deg", math.nan),
+                        row.get("scan_minus_imu_rotation_max_deg", math.nan),
+                        row.get("scan_minus_imu_rotation_above_5deg_count", 0),
+                        row.get("scan_error_ratio_p95", math.nan),
+                        row.get("scan_error_ratio_above_1_count", 0),
+                        row.get("scan_hessian_min_eigenvalue_min", math.nan),
+                        row.get("scan_hessian_condition_p95", math.nan),
+                        row.get("scan_hessian_rank_min", math.nan),
+                        (
+                            f"{row.get('scan_health_enabled_count', 0)} / "
+                            f"{row.get('scan_health_apply_local_count', 0)} / "
+                            f"{row.get('scan_health_hessian_enabled_count', 0)}"
+                        ),
+                        (
+                            f"{format_float(row.get('scan_health_clamped_p50', math.nan))} / "
+                            f"{format_float(row.get('scan_health_clamped_min', math.nan))}"
+                        ),
+                        (
+                            f"{format_float(row.get('effective_scan_precision_p50', math.nan))} / "
+                            f"{format_float(row.get('effective_scan_precision_min', math.nan))}"
+                        ),
+                    ]
+                    for row in glim_scan_health
                 ],
             )
         )
@@ -4160,6 +6402,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--launch-package", default=None)
     run_parser.add_argument("--launch-file", default=None)
     run_parser.add_argument("--rerun-host", default=DEFAULT_RERUN_HOST)
+    run_parser.add_argument(
+        "--cbs-mode-preset",
+        choices=sorted(CBS_MODE_PRESETS),
+        default=None,
+    )
     run_parser.add_argument("--extra-arg", action="append", default=[])
     run_parser.add_argument(
         "--trajectory-topic",
