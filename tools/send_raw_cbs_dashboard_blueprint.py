@@ -32,7 +32,7 @@ def cbs_count_paths(prefix):
   ]
 
 
-def build_blueprint(rrb):
+def build_blueprint(rrb, active_tab=0):
   scene = rrb.Spatial3DView(
       origin="/",
       contents=[
@@ -159,6 +159,342 @@ def build_blueprint(rrb):
           "+ /kimera/keyframe_id",
           "+ /kimera/factor_graph/factors_total",
           "+ /kimera/cbs/marginalization_graph/factor_count",
+      ],
+  )
+
+  kimera_factor_graph = rrb.Spatial3DView(
+      origin="/kimera/factor_graph_inspector/spatial",
+      contents=[
+          "+ /kimera/factor_graph_inspector/spatial/**",
+          "- /__properties/**",
+      ],
+      name="Spatial Kimera Factor Graph",
+      background=[16, 18, 22],
+      eye_controls=rrb.EyeControls3D(
+          kind=rrb.Eye3DKind.Orbital,
+          position=(0.0, 2.5, 12.0),
+          look_target=(0.0, 2.5, 0.0),
+          eye_up=(0.0, 1.0, 0.0),
+          tracking_entity=(
+              "/kimera/factor_graph_inspector/spatial/states/latest_pose"
+          ),
+      ),
+      line_grid=rrb.LineGrid3D(
+          visible=True,
+          spacing=1.0,
+          stroke_width=1.0,
+          color=[90, 96, 105, 90],
+      ),
+  )
+
+  kimera_factor_graph_video = rrb.Spatial2DView(
+      origin="/video",
+      contents=[
+          "+ /video/**",
+          "- /__properties/**",
+      ],
+      name="Synchronized Camera",
+  )
+
+  kimera_factor_graph_storage = ts_view(
+      rrb,
+      "Kimera Factor Slot Storage",
+      "/kimera/factor_graph_inspector/counts",
+      [
+          "+ /kimera/factor_graph_inspector/counts/raw_factor_slots",
+          "+ /kimera/factor_graph_inspector/counts/tombstone_slots",
+      ],
+  )
+
+  kimera_factor_graph_active = ts_view(
+      rrb,
+      "Kimera Active Graph",
+      "/kimera/factor_graph_inspector/counts",
+      [
+          "+ /kimera/factor_graph_inspector/counts/live_factors",
+          "+ /kimera/factor_graph_inspector/counts/state_values",
+          "+ /kimera/factor_graph_inspector/counts/active_pose_keys",
+          "+ /kimera/factor_graph_inspector/counts/active_velocity_keys",
+          "+ /kimera/factor_graph_inspector/counts/active_bias_keys",
+          "+ /kimera/factor_graph_inspector/counts/trajectory_history_poses",
+          "+ /kimera/factor_graph_inspector/counts/missing_key_references",
+          "+ /kimera/factor_graph_inspector/counts/unique_missing_keys",
+      ],
+  )
+
+  kimera_visual_factor_composition = ts_view(
+      rrb,
+      "Kimera Visual Factors",
+      "/kimera/factor_graph_inspector/counts",
+      [
+          "+ /kimera/factor_graph_inspector/counts/smart_stereo_factors",
+          "+ /kimera/factor_graph_inspector/counts/smart_factors_visualized",
+          "+ /kimera/factor_graph_inspector/counts/smart_factors_aggregated",
+      ],
+  )
+
+  kimera_structural_factor_composition = ts_view(
+      rrb,
+      "Kimera Structural Factors",
+      "/kimera/factor_graph_inspector/counts",
+      [
+          "+ /kimera/factor_graph_inspector/counts/imu_factors",
+          "+ /kimera/factor_graph_inspector/counts/bias_between_factors",
+          "+ /kimera/factor_graph_inspector/counts/marginal_factors",
+          "+ /kimera/factor_graph_inspector/counts/pose_between_factors",
+          "+ /kimera/factor_graph_inspector/counts/cbs_g2k_pose_between_factors",
+          "+ /kimera/factor_graph_inspector/counts/prior_factors",
+          "+ /kimera/factor_graph_inspector/counts/other_factors",
+      ],
+  )
+
+  glim_factor_graph = rrb.Spatial3DView(
+      origin="/glim/factor_graph_inspector/spatial",
+      contents=[
+          "+ /glim/factor_graph_inspector/spatial/**",
+          "- /__properties/**",
+      ],
+      name="Spatial GLIM Factor Graph",
+      background=[16, 18, 22],
+      line_grid=rrb.LineGrid3D(
+          visible=True,
+          spacing=1.0,
+          stroke_width=1.0,
+          color=[90, 96, 105, 90],
+      ),
+  )
+
+  glim_factor_graph_video = rrb.Spatial2DView(
+      origin="/video",
+      contents=[
+          "+ /video/**",
+          "- /__properties/**",
+      ],
+      name="Synchronized Camera",
+  )
+
+  glim_factor_graph_trajectory = rrb.Spatial3DView(
+      origin="/aligned",
+      contents=[
+          "+ /aligned/glim/**",
+          "+ /aligned/ground_truth/**",
+          "- /aligned/metadata/**",
+          "- /__properties/**",
+      ],
+      name="GLIM Trajectory vs Ground Truth",
+      background=[16, 18, 22],
+      line_grid=rrb.LineGrid3D(
+          visible=True,
+          spacing=1.0,
+          stroke_width=1.0,
+          color=[90, 96, 105, 90],
+      ),
+  )
+
+  glim_factor_graph_storage = ts_view(
+      rrb,
+      "GLIM Factor Slot Storage",
+      "/glim/factor_graph_inspector/counts",
+      [
+          "+ /glim/factor_graph_inspector/counts/raw_factor_slots",
+          "+ /glim/factor_graph_inspector/counts/live_factors",
+          "+ /glim/factor_graph_inspector/counts/tombstone_slots",
+      ],
+  )
+
+  glim_factor_graph_active = ts_view(
+      rrb,
+      "GLIM Active Graph",
+      "/glim/factor_graph_inspector/counts",
+      [
+          "+ /glim/factor_graph_inspector/counts/state_values",
+          "+ /glim/factor_graph_inspector/counts/active_pose_keys",
+          "+ /glim/factor_graph_inspector/counts/active_velocity_keys",
+          "+ /glim/factor_graph_inspector/counts/active_bias_keys",
+          "+ /glim/factor_graph_inspector/counts/missing_key_references",
+          "+ /glim/factor_graph_inspector/counts/unique_missing_keys",
+      ],
+  )
+
+  glim_factor_composition = ts_view(
+      rrb,
+      "GLIM Factor Composition",
+      "/glim/factor_graph_inspector/counts",
+      [
+          "+ /glim/factor_graph_inspector/counts/imu_factors",
+          "+ /glim/factor_graph_inspector/counts/bias_between_factors",
+          "+ /glim/factor_graph_inspector/counts/scan_pose_between_factors",
+          "+ /glim/factor_graph_inspector/counts/cbs_k2g_pose_between_factors",
+          "+ /glim/factor_graph_inspector/counts/scan_pose_prior_factors",
+          "+ /glim/factor_graph_inspector/counts/marginal_factors",
+          "+ /glim/factor_graph_inspector/counts/damping_factors",
+          "+ /glim/factor_graph_inspector/counts/velocity_fallback_factors",
+          "+ /glim/factor_graph_inspector/counts/other_factors",
+      ],
+  )
+
+  dcreg_spatial = rrb.Spatial3DView(
+      origin="/glim/dcreg/spatial",
+      contents=[
+          "+ /glim/dcreg/spatial/**",
+          "+ /glim/factor_graph_inspector/spatial/context/trajectory_history",
+          "+ /glim/factor_graph_inspector/spatial/states/latest_pose",
+          "- /__properties/**",
+      ],
+      name="DCReg Weak Directions in World",
+      background=[16, 18, 22],
+  )
+
+  dcreg_condition = ts_view(
+      rrb,
+      "DCReg Schur Condition Ratios",
+      "/glim/dcreg/condition",
+      [
+          "+ /glim/dcreg/condition/rotation",
+          "+ /glim/dcreg/condition/translation",
+          "+ /glim/dcreg/condition/threshold",
+      ],
+  )
+
+  dcreg_rotation_eigenvalues = ts_view(
+      rrb,
+      "Rotation Schur Eigenvalues",
+      "/glim/dcreg/eigenvalue/rotation",
+      ["+ /glim/dcreg/eigenvalue/rotation/**"],
+  )
+
+  dcreg_translation_eigenvalues = ts_view(
+      rrb,
+      "Translation Schur Eigenvalues",
+      "/glim/dcreg/eigenvalue/translation",
+      ["+ /glim/dcreg/eigenvalue/translation/**"],
+  )
+
+  dcreg_rotation_weakness = ts_view(
+      rrb,
+      "Local Rotation Axis Weakness",
+      "/glim/dcreg/axis_weakness/rotation",
+      ["+ /glim/dcreg/axis_weakness/rotation/**"],
+  )
+
+  dcreg_translation_weakness = ts_view(
+      rrb,
+      "Local Translation Axis Weakness",
+      "/glim/dcreg/axis_weakness/translation",
+      ["+ /glim/dcreg/axis_weakness/translation/**"],
+  )
+
+  dcreg_status = ts_view(
+      rrb,
+      "DCReg Diagnostic Status",
+      "/glim/dcreg",
+      [
+          "+ /glim/dcreg/status/**",
+          "+ /glim/dcreg/rank/**",
+      ],
+  )
+
+  dual_dcreg_condition = ts_view(
+      rrb,
+      "DCReg Schur Condition Ratios",
+      "/glim/dcreg/condition",
+      [
+          "+ /glim/dcreg/condition/rotation",
+          "+ /glim/dcreg/condition/translation",
+          "+ /glim/dcreg/condition/threshold",
+      ],
+  )
+
+  dual_dcreg_rotation_weakness = ts_view(
+      rrb,
+      "Local Rotation Axis Weakness",
+      "/glim/dcreg/axis_weakness/rotation",
+      ["+ /glim/dcreg/axis_weakness/rotation/**"],
+  )
+
+  dual_dcreg_translation_weakness = ts_view(
+      rrb,
+      "Local Translation Axis Weakness",
+      "/glim/dcreg/axis_weakness/translation",
+      ["+ /glim/dcreg/axis_weakness/translation/**"],
+  )
+
+  dual_glim_factor_graph = rrb.Spatial3DView(
+      origin="/glim/factor_graph_inspector/spatial",
+      contents=[
+          "+ /glim/factor_graph_inspector/spatial/**",
+          "- /__properties/**",
+      ],
+      name="GLIM Factor Graph with K2G",
+      background=[16, 18, 22],
+      line_grid=rrb.LineGrid3D(
+          visible=True,
+          spacing=1.0,
+          stroke_width=1.0,
+          color=[90, 96, 105, 90],
+      ),
+  )
+
+  dual_kimera_factor_graph = rrb.Spatial3DView(
+      origin="/kimera/factor_graph_inspector/spatial",
+      contents=[
+          "+ /kimera/factor_graph_inspector/spatial/**",
+          "- /__properties/**",
+      ],
+      name="Kimera Factor Graph with G2K",
+      background=[16, 18, 22],
+      eye_controls=rrb.EyeControls3D(
+          kind=rrb.Eye3DKind.Orbital,
+          position=(0.0, 2.5, 12.0),
+          look_target=(0.0, 2.5, 0.0),
+          eye_up=(0.0, 1.0, 0.0),
+          tracking_entity=(
+              "/kimera/factor_graph_inspector/spatial/states/latest_pose"
+          ),
+      ),
+      line_grid=rrb.LineGrid3D(
+          visible=True,
+          spacing=1.0,
+          stroke_width=1.0,
+          color=[90, 96, 105, 90],
+      ),
+  )
+
+  dual_factor_graph_video = rrb.Spatial2DView(
+      origin="/video",
+      contents=[
+          "+ /video/**",
+          "- /__properties/**",
+      ],
+      name="Synchronized Camera",
+  )
+
+  dual_factor_graph_trajectory = rrb.Spatial3DView(
+      origin="/aligned",
+      contents=[
+          "+ /aligned/glim/**",
+          "+ /aligned/kimera/**",
+          "+ /aligned/ground_truth/**",
+          "- /aligned/metadata/**",
+          "- /__properties/**",
+      ],
+      name="CBS-On Trajectories vs Ground Truth",
+      background=[16, 18, 22],
+      line_grid=rrb.LineGrid3D(
+          visible=True,
+          spacing=1.0,
+          stroke_width=1.0,
+          color=[90, 96, 105, 90],
+      ),
+  )
+
+  dual_external_factors = ts_view(
+      rrb,
+      "Active External CBS Factors",
+      "/",
+      [
+          "+ /glim/factor_graph_inspector/counts/cbs_k2g_pose_between_factors",
+          "+ /kimera/factor_graph_inspector/counts/cbs_g2k_pose_between_factors",
       ],
   )
 
@@ -297,6 +633,68 @@ def build_blueprint(rrb):
               "latest_sigma_max_cm",
               "latest_translation_trace_cm2",
               "latest_translation_frobenius_cm2",
+          ],
+      ),
+  )
+
+  relative_rotation_trace = ts_view(
+      rrb,
+      "Relative Rotation Covariance Trace (rad^2)",
+      "/metrics/relative_belief_covariance",
+      [
+          "+ /metrics/relative_belief_covariance/glim_sent/latest_rotation_trace_rad2",
+          "+ /metrics/relative_belief_covariance/kimera_sent/latest_rotation_trace_rad2",
+      ],
+  )
+
+  relative_translation_trace = ts_view(
+      rrb,
+      "Relative Translation Covariance Trace (m^2)",
+      "/metrics/relative_belief_covariance",
+      [
+          "+ /metrics/relative_belief_covariance/glim_sent/latest_translation_trace_m2",
+          "+ /metrics/relative_belief_covariance/kimera_sent/latest_translation_trace_m2",
+      ],
+  )
+
+  relative_rotation_axes = ts_view(
+      rrb,
+      "Relative Rotation Axis Variances (rad^2)",
+      "/metrics/relative_belief_covariance",
+      explicit_paths(
+          "/metrics/relative_belief_covariance/glim_sent",
+          [
+              "latest_rotation_variance_x_rad2",
+              "latest_rotation_variance_y_rad2",
+              "latest_rotation_variance_z_rad2",
+          ],
+      ) + explicit_paths(
+          "/metrics/relative_belief_covariance/kimera_sent",
+          [
+              "latest_rotation_variance_x_rad2",
+              "latest_rotation_variance_y_rad2",
+              "latest_rotation_variance_z_rad2",
+          ],
+      ),
+  )
+
+  relative_translation_axes = ts_view(
+      rrb,
+      "Relative Translation Axis Variances (m^2)",
+      "/metrics/relative_belief_covariance",
+      explicit_paths(
+          "/metrics/relative_belief_covariance/glim_sent",
+          [
+              "latest_translation_variance_x_m2",
+              "latest_translation_variance_y_m2",
+              "latest_translation_variance_z_m2",
+          ],
+      ) + explicit_paths(
+          "/metrics/relative_belief_covariance/kimera_sent",
+          [
+              "latest_translation_variance_x_m2",
+              "latest_translation_variance_y_m2",
+              "latest_translation_variance_z_m2",
           ],
       ),
   )
@@ -446,7 +844,7 @@ def build_blueprint(rrb):
       name="Covariance and Alignment",
   )
 
-  root = rrb.Vertical(
+  raw_dashboard = rrb.Vertical(
       rrb.Horizontal(
           scene,
           video,
@@ -474,6 +872,117 @@ def build_blueprint(rrb):
       name="Raw CBS Dashboard",
   )
 
+  factor_graph_inspector = rrb.Horizontal(
+      kimera_factor_graph,
+      rrb.Vertical(
+          kimera_factor_graph_video,
+          kimera_factor_graph_storage,
+          kimera_factor_graph_active,
+          kimera_visual_factor_composition,
+          kimera_structural_factor_composition,
+          row_shares=[2.2, 1.0, 1.0, 1.0, 1.0],
+          name="Kimera Video and Graph Diagnostics",
+      ),
+      column_shares=[2.2, 1.0],
+      name="Kimera Factor Graph Inspector",
+  )
+
+  glim_factor_graph_diagnostics = rrb.Tabs(
+      glim_factor_graph_storage,
+      glim_factor_graph_active,
+      glim_factor_composition,
+      active_tab=0,
+      name="GLIM Graph Diagnostics",
+  )
+
+  glim_factor_graph_inspector = rrb.Horizontal(
+      glim_factor_graph,
+      rrb.Vertical(
+          glim_factor_graph_video,
+          glim_factor_graph_trajectory,
+          glim_factor_graph_diagnostics,
+          row_shares=[1.25, 1.25, 1.0],
+          name="GLIM Video, Trajectory, and Graph Diagnostics",
+      ),
+      column_shares=[2.1, 1.0],
+      name="GLIM Factor Graph Inspector",
+  )
+
+  dual_factor_graph_inspector = rrb.Vertical(
+      rrb.Horizontal(
+          dual_glim_factor_graph,
+          dual_kimera_factor_graph,
+          column_shares=[1.0, 1.0],
+          name="CBS-On Factor Graphs",
+      ),
+      rrb.Horizontal(
+          dual_factor_graph_video,
+          dual_factor_graph_trajectory,
+          dual_external_factors,
+          column_shares=[1.0, 1.25, 0.8],
+          name="Synchronized CBS Context",
+      ),
+      rrb.Horizontal(
+          relative_rotation_trace,
+          relative_translation_trace,
+          column_shares=[1.0, 1.0],
+          name="Outgoing Relative Belief Covariance",
+      ),
+      rrb.Horizontal(
+          relative_rotation_axes,
+          relative_translation_axes,
+          column_shares=[1.0, 1.0],
+          name="Outgoing Relative Belief Covariance by Axis",
+      ),
+      rrb.Horizontal(
+          dual_dcreg_condition,
+          dual_dcreg_rotation_weakness,
+          dual_dcreg_translation_weakness,
+          column_shares=[1.0, 1.0, 1.0],
+          name="GLIM DCReg Stage 1",
+      ),
+      row_shares=[2.2, 1.0, 0.8, 0.8, 0.8],
+      name="CBS-On Dual Factor Graph Inspector",
+  )
+
+  dcreg_inspector = rrb.Vertical(
+      rrb.Horizontal(
+          dcreg_spatial,
+          rrb.Vertical(
+              dcreg_status,
+              dcreg_condition,
+              row_shares=[1.0, 1.2],
+              name="Validity and Conditioning",
+          ),
+          column_shares=[2.0, 1.0],
+          name="Weak Directions and Status",
+      ),
+      rrb.Horizontal(
+          dcreg_rotation_eigenvalues,
+          dcreg_translation_eigenvalues,
+          column_shares=[1.0, 1.0],
+          name="Decoupled Schur Spectra",
+      ),
+      rrb.Horizontal(
+          dcreg_rotation_weakness,
+          dcreg_translation_weakness,
+          column_shares=[1.0, 1.0],
+          name="Local-Tangent Physical Axis Contributions",
+      ),
+      row_shares=[1.8, 1.0, 1.0],
+      name="GLIM DCReg Stage 1 Inspector",
+  )
+
+  root = rrb.Tabs(
+      raw_dashboard,
+      factor_graph_inspector,
+      glim_factor_graph_inspector,
+      dual_factor_graph_inspector,
+      dcreg_inspector,
+      active_tab=active_tab,
+      name="CBS Experiment Views",
+  )
+
   return rrb.Blueprint(
       root,
       rrb.BlueprintPanel(state="collapsed"),
@@ -499,6 +1008,17 @@ def parse_args():
       "--no-make-default",
       action="store_true",
       help="Send as active only, without setting it as the default blueprint.")
+  parser.add_argument(
+      "--active-tab",
+      choices=(
+          "dashboard",
+          "factor-graph",
+          "glim-factor-graph",
+          "dual-factor-graph",
+          "dcreg",
+      ),
+      default="dashboard",
+      help="Select which top-level dashboard tab is active.")
   return parser.parse_args()
 
 
@@ -513,7 +1033,16 @@ def main():
         file=sys.stderr)
     raise SystemExit(2) from exc
 
-  blueprint = build_blueprint(rrb)
+  blueprint = build_blueprint(
+      rrb,
+      active_tab={
+          "dashboard": 0,
+          "factor-graph": 1,
+          "glim-factor-graph": 2,
+          "dual-factor-graph": 3,
+          "dcreg": 4,
+      }[args.active_tab],
+  )
   blueprint.connect_grpc(
       application_id=args.app_id,
       url=args.url,

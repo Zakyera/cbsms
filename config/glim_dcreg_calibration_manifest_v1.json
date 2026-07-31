@@ -1,0 +1,296 @@
+{
+  "schema_version": 1,
+  "manifest_id": "glim_dcreg_calibration_v1",
+  "created_at": "2026-07-30",
+  "scope": {
+    "estimator": "GLIM",
+    "estimator_profile": "m3dgr_mid360_native_imu_clean",
+    "lidar_model": "Livox MID-360",
+    "lidar_topic": "/livox/mid360/lidar",
+    "imu_topic": "/livox/mid360/imu",
+    "pose_frame": "livox_frame",
+    "dcreg_input": "LiDAR registration Hessian before CBS factor injection",
+    "calibration_target": "directional expected GLIM relative-pose error covariance",
+    "tangent_order": [
+      "rx",
+      "ry",
+      "rz",
+      "tx",
+      "ty",
+      "tz"
+    ],
+    "covariance_changes_allowed": false
+  },
+  "split_policy": {
+    "unit": "source_sequence",
+    "random_edge_split_allowed": false,
+    "overlapping_windows_across_splits_allowed": false,
+    "freeze_before_model_fitting": true,
+    "required_partitions": [
+      "calibration",
+      "validation",
+      "test"
+    ],
+    "minimum_distinct_source_sequences": {
+      "calibration": 3,
+      "validation": 1,
+      "test": 1
+    },
+    "notes": [
+      "All edges from one source sequence stay in exactly one partition.",
+      "Windows cut from the same original recording share one split_group.",
+      "Outdoor01 remains evidence-only because its supplied truth is position-only RTK and its reference uncertainty is close to the measured short-edge errors.",
+      "No calibration curve is fitted until the split is frozen and every selected ground-truth body transform is verified."
+    ]
+  },
+  "sequences": [
+    {
+      "id": "m3dgr_dynamic01",
+      "dataset_family": "M3DGR",
+      "environment": "indoor_dynamic",
+      "split_group": "m3dgr_dynamic01",
+      "status": "collect_pending_extrinsic",
+      "host_bag": "src/datasets/M3DGR/Dynamic01/Dynamic01.bag",
+      "container_bag": "/workspace/cbs_gtsam4.3/src/datasets/M3DGR/Dynamic01/Dynamic01.bag",
+      "ground_truth": "src/datasets/M3DGR/Dynamic01/Dynamic01.txt",
+      "bag_start_sec": 1732437229.399620,
+      "bag_end_sec": 1732437404.562374,
+      "required_topics": [
+        "/livox/mid360/lidar",
+        "/livox/mid360/imu",
+        "/vrpn_client_node/UGV/pose"
+      ],
+      "lidar_model": "Livox MID-360",
+      "ground_truth_kind": "full_pose",
+      "ground_truth_source": "OptiTrack via /vrpn_client_node/UGV/pose",
+      "ground_truth_pose_frame": "tracked UGV rigid-body origin in OptiTrack world",
+      "ground_truth_to_glim_pose_extrinsic": {
+        "status": "unverified",
+        "required_transform": "T_tracked_UGV_mid360_or_equivalent"
+      },
+      "reference_shadow_run": "runs/20260731-105940_m3dgr_dynamic01_dcreg_multidataset_collection_valid_60sensorsec_rate025",
+      "rerun_recording_id": "m3dgr_dynamic01_dcreg_multidataset_valid_20260731_105927",
+      "allowed_uses": [
+        "shadow_collection",
+        "trajectory_evidence"
+      ],
+      "blocked_uses": [
+        "rotation_calibration",
+        "translation_calibration"
+      ]
+    },
+    {
+      "id": "m3dgr_outdoor01",
+      "dataset_family": "M3DGR",
+      "environment": "outdoor_open",
+      "split_group": "m3dgr_outdoor01",
+      "status": "evidence_only",
+      "host_bag": "src/datasets/M3DGR/Outdoor01/Outdoor01.bag",
+      "container_bag": "/workspace/cbs_gtsam4.3/src/datasets/M3DGR/Outdoor01/Outdoor01.bag",
+      "ground_truth": "src/datasets/M3DGR/Outdoor01/Outdoor01.txt",
+      "bag_start_sec": 1735888008.064320,
+      "bag_end_sec": 1735888419.631241,
+      "required_topics": [
+        "/livox/mid360/lidar",
+        "/livox/mid360/imu",
+        "/mavros/global_position/raw/fix"
+      ],
+      "lidar_model": "Livox MID-360",
+      "ground_truth_kind": "position_only",
+      "ground_truth_source": "RTK",
+      "ground_truth_pose_frame": "RTK antenna position; identity quaternion is a placeholder",
+      "ground_truth_to_glim_pose_extrinsic": {
+        "status": "not_applicable_for_rotation",
+        "required_transform": "RTK antenna lever arm for precision translation calibration"
+      },
+      "reference_shadow_run": "runs/20260730-144847_m3dgr_outdoor01_dcreg_directional_shadow_isolated_valid_60s_rate025",
+      "rerun_recording_id": "m3dgr_outdoor01_dcreg_directional_shadow_isolated_valid_20260730_144833",
+      "allowed_uses": [
+        "translation_direction_evidence"
+      ],
+      "blocked_uses": [
+        "rotation_calibration",
+        "production_multiplier_fitting"
+      ]
+    },
+    {
+      "id": "m3dgr_wheel_float01",
+      "dataset_family": "M3DGR",
+      "environment": "indoor_wheel_float",
+      "split_group": "m3dgr_wheel_float01",
+      "status": "collect_pending_extrinsic",
+      "host_bag": "src/datasets/M3DGR/Wheel-float01/Wheel-float01.bag",
+      "container_bag": "/workspace/cbs_gtsam4.3/src/datasets/M3DGR/Wheel-float01/Wheel-float01.bag",
+      "ground_truth": "src/datasets/M3DGR/Wheel-float01/Wheel-float01.txt",
+      "bag_start_sec": 1732437676.878834,
+      "bag_end_sec": 1732437800.156648,
+      "required_topics": [
+        "/livox/mid360/lidar",
+        "/livox/mid360/imu",
+        "/vrpn_client_node/UGV/pose"
+      ],
+      "lidar_model": "Livox MID-360",
+      "ground_truth_kind": "full_pose",
+      "ground_truth_source": "OptiTrack via /vrpn_client_node/UGV/pose",
+      "ground_truth_pose_frame": "tracked UGV rigid-body origin in OptiTrack world",
+      "ground_truth_to_glim_pose_extrinsic": {
+        "status": "unverified",
+        "required_transform": "T_tracked_UGV_mid360_or_equivalent"
+      },
+      "reference_shadow_run": "runs/20260731-111028_m3dgr_wheel_float01_dcreg_multidataset_collection_valid_60sensorsec_rate025",
+      "rerun_recording_id": "m3dgr_wheel_float01_dcreg_multidataset_valid_20260731_111011",
+      "allowed_uses": [
+        "shadow_collection",
+        "trajectory_evidence"
+      ],
+      "blocked_uses": [
+        "rotation_calibration",
+        "translation_calibration"
+      ]
+    },
+    {
+      "id": "s3e_square_1",
+      "dataset_family": "S3E",
+      "environment": "outdoor_square",
+      "split_group": "s3e_square_1",
+      "status": "excluded_sensor_profile",
+      "host_bag": "src/datasets/S3E/S3E_Square_1/S3E_Square_1_alpha_ros1.bag",
+      "container_bag": "/workspace/cbs_gtsam4.3/src/datasets/S3E/S3E_Square_1/S3E_Square_1_alpha_ros1.bag",
+      "ground_truth": "src/datasets/S3E/S3E_Square_1/alpha_gt.txt",
+      "lidar_model": "Velodyne",
+      "ground_truth_kind": "position_only",
+      "allowed_uses": [
+        "future_cross_sensor_holdout"
+      ],
+      "blocked_uses": [
+        "glim_mid360_v1_calibration"
+      ]
+    },
+    {
+      "id": "s3e_square_2",
+      "dataset_family": "S3E",
+      "environment": "outdoor_square",
+      "split_group": "s3e_square_2",
+      "status": "excluded_sensor_profile",
+      "host_bag": "src/datasets/S3E/S3E_Square_2/S3E_Square_2_alpha_ros1.bag",
+      "container_bag": "/workspace/cbs_gtsam4.3/src/datasets/S3E/S3E_Square_2/S3E_Square_2_alpha_ros1.bag",
+      "ground_truth": "src/datasets/S3E/S3E_Square_2/alpha_gt.txt",
+      "lidar_model": "Velodyne",
+      "ground_truth_kind": "position_only",
+      "allowed_uses": [
+        "future_cross_sensor_holdout"
+      ],
+      "blocked_uses": [
+        "glim_mid360_v1_calibration"
+      ]
+    },
+    {
+      "id": "s3e_playground_2",
+      "dataset_family": "S3E",
+      "environment": "outdoor_playground",
+      "split_group": "s3e_playground_2",
+      "status": "excluded_sensor_profile",
+      "host_bag": "src/datasets/S3E/S3E_Playground_2/S3E_Playground_2_alpha_ros1.bag",
+      "container_bag": "/workspace/cbs_gtsam4.3/src/datasets/S3E/S3E_Playground_2/S3E_Playground_2_alpha_ros1.bag",
+      "ground_truth": "src/datasets/S3E/S3E_Playground_2/alpha_gt.txt",
+      "lidar_model": "Velodyne",
+      "ground_truth_kind": "position_only",
+      "allowed_uses": [
+        "future_cross_sensor_holdout"
+      ],
+      "blocked_uses": [
+        "glim_mid360_v1_calibration"
+      ]
+    },
+    {
+      "id": "s3e_teaching_building_1",
+      "dataset_family": "S3E",
+      "environment": "indoor_outdoor_building",
+      "split_group": "s3e_teaching_building_1",
+      "status": "excluded_sensor_profile",
+      "host_bag": "src/datasets/S3E/S3E_Teaching_Building_1/S3E_Teaching_Building_1_alpha_ros1.bag",
+      "container_bag": "/workspace/cbs_gtsam4.3/src/datasets/S3E/S3E_Teaching_Building_1/S3E_Teaching_Building_1_alpha_ros1.bag",
+      "ground_truth": "src/datasets/S3E/S3E_Teaching_Building_1/alpha_gt.txt",
+      "lidar_model": "Velodyne",
+      "ground_truth_kind": "position_only",
+      "allowed_uses": [
+        "future_cross_sensor_holdout"
+      ],
+      "blocked_uses": [
+        "glim_mid360_v1_calibration"
+      ]
+    },
+    {
+      "id": "s3e_campus_road_2",
+      "dataset_family": "S3E",
+      "environment": "outdoor_road",
+      "split_group": "s3e_campus_road_2",
+      "status": "excluded_sensor_profile",
+      "host_bag": "src/datasets/S3E/S3E_Campus_Road_2/S3E_Campus_Road_2_alpha_ros1.bag",
+      "container_bag": "/workspace/cbs_gtsam4.3/src/datasets/S3E/S3E_Campus_Road_2/S3E_Campus_Road_2_alpha_ros1.bag",
+      "ground_truth": "src/datasets/S3E/S3E_Campus_Road_2/alpha_gt.txt",
+      "lidar_model": "Velodyne",
+      "ground_truth_kind": "full_pose",
+      "allowed_uses": [
+        "future_cross_sensor_holdout"
+      ],
+      "blocked_uses": [
+        "glim_mid360_v1_calibration"
+      ]
+    },
+    {
+      "id": "boreas_2020_11_26_moving_60s",
+      "dataset_family": "Boreas",
+      "environment": "outdoor_road_moving",
+      "split_group": "boreas_2020_11_26_13_58",
+      "status": "excluded_sensor_profile",
+      "host_bag": "src/datasets/Boreas/boreas-2020-11-26-13-58/raw_window_237s_60s/boreas_window_237s_60s_ros1_applanix_imu.bag",
+      "container_bag": "/workspace/cbs_gtsam4.3/src/datasets/Boreas/boreas-2020-11-26-13-58/raw_window_237s_60s/boreas_window_237s_60s_ros1_applanix_imu.bag",
+      "ground_truth": "src/datasets/Boreas/boreas-2020-11-26-13-58/raw_window_237s_60s/gt_applanix_applanix_imu.tum",
+      "lidar_model": "Velodyne Alpha Prime",
+      "ground_truth_kind": "full_pose",
+      "allowed_uses": [
+        "future_cross_sensor_holdout"
+      ],
+      "blocked_uses": [
+        "glim_mid360_v1_calibration"
+      ]
+    },
+    {
+      "id": "boreas_2020_11_26_stationary_start_60s",
+      "dataset_family": "Boreas",
+      "environment": "outdoor_road_stationary_start",
+      "split_group": "boreas_2020_11_26_13_58",
+      "status": "excluded_sensor_profile",
+      "host_bag": "src/datasets/Boreas/boreas-2020-11-26-13-58/raw_window_stationary_276s_60s/boreas_window_stationary_276s_60s_ros1_applanix_imu.bag",
+      "container_bag": "/workspace/cbs_gtsam4.3/src/datasets/Boreas/boreas-2020-11-26-13-58/raw_window_stationary_276s_60s/boreas_window_stationary_276s_60s_ros1_applanix_imu.bag",
+      "ground_truth": "src/datasets/Boreas/boreas-2020-11-26-13-58/raw_window_stationary_276s_60s/gt_applanix_applanix_imu.tum",
+      "lidar_model": "Velodyne Alpha Prime",
+      "ground_truth_kind": "full_pose",
+      "allowed_uses": [
+        "future_cross_sensor_holdout"
+      ],
+      "blocked_uses": [
+        "glim_mid360_v1_calibration"
+      ]
+    },
+    {
+      "id": "boreas_2020_11_26_stationary_start_300s",
+      "dataset_family": "Boreas",
+      "environment": "outdoor_road_stationary_start",
+      "split_group": "boreas_2020_11_26_13_58",
+      "status": "excluded_sensor_profile",
+      "host_bag": "src/datasets/Boreas/boreas-2020-11-26-13-58/raw_window_stationary_276s_300s/boreas_window_stationary_276s_300s_ros1_applanix_imu.bag",
+      "container_bag": "/workspace/cbs_gtsam4.3/src/datasets/Boreas/boreas-2020-11-26-13-58/raw_window_stationary_276s_300s/boreas_window_stationary_276s_300s_ros1_applanix_imu.bag",
+      "ground_truth": "src/datasets/Boreas/boreas-2020-11-26-13-58/raw_window_stationary_276s_300s/gt_applanix_applanix_imu.tum",
+      "lidar_model": "Velodyne Alpha Prime",
+      "ground_truth_kind": "full_pose",
+      "allowed_uses": [
+        "future_cross_sensor_holdout"
+      ],
+      "blocked_uses": [
+        "glim_mid360_v1_calibration"
+      ]
+    }
+  ]
+}

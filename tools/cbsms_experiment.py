@@ -26,6 +26,12 @@ import time
 from collections import Counter, defaultdict
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
+from glim_dcreg_calibration_protocol import (
+    DEFAULT_MANIFEST_RELATIVE as DEFAULT_DCREG_CALIBRATION_MANIFEST_RELATIVE,
+    load_manifest as load_dcreg_calibration_manifest,
+)
+from glim_dcreg_directional_audit import build_directional_audit
+
 
 DEFAULT_CONTAINER = "cbsms_ws"
 DEFAULT_CONTAINER_WORKSPACE = "/workspace/cbs_gtsam4.3"
@@ -173,7 +179,7 @@ EXPERIMENT_PROFILES: Dict[str, Dict[str, Any]] = {
             "m3dgr_kimera_T_glim_qz": "0.477055852",
             "m3dgr_kimera_T_glim_qw": "0.517066473",
             "cbs_health_aware_enable": "false",
-            "glim_cbs_mode": "active_window_temporary",
+            "glim_cbs_mode": "inject_persistent",
             "glim_cbs_outgoing_marginal_source": "direct",
             "kimera_cbs_odom_sender_mode": "time_horizon_window",
             "glim_cbs_odom_sender_mode": "time_horizon_window",
@@ -183,8 +189,8 @@ EXPERIMENT_PROFILES: Dict[str, Dict[str, Any]] = {
             "cbs_odom_duration_gate_enable": "true",
             "cbs_odom_horizon_sec": "0.20",
             "cbs_odom_horizon_tolerance_sec": "0.06",
-            "cbs_use_temporary_cbs_linear_factors": "true",
-            "cbs_odom_factor_mode": "active_window_temporary",
+            "cbs_use_temporary_cbs_linear_factors": "false",
+            "cbs_odom_factor_mode": "persistent",
             "cbs_odom_covariance_mode": "schur_relative_between",
             "cbs_temporary_linear_already_applied_gate_enable": "true",
             "cbs_temporary_linear_already_applied_metric_threshold": "0.01",
@@ -412,6 +418,7 @@ ROW_MARKERS = (
     "CBS_BELIEF_ODOM_ROW",
     "CBS_ODOM_OUTGOING_ROW",
     "CBS_ODOM_RELATIVE_COVARIANCE_ROW",
+    "CBS_ODOM_RELATIVE_COVARIANCE_MATRIX_ROW",
     "CBS_ODOM_MATCH_ROW_L2K",
     "CBS_ODOM_MATCH_ROW_K2L",
     "CBS_ODOM_MATCH_ROW_G2K",
@@ -433,10 +440,14 @@ ROW_MARKERS = (
     "CBS_TEMPORARY_LINEARIZATION_RESIDUAL_ROW",
     "CBS_KIMERA_OUTGOING_PROVENANCE_ROW",
     "CBS_MARGINALIZATION_GRAPH_ROW",
+    "CBS_MARGINALIZATION_FACTOR_DETAIL_ROW",
     "GLIM_CBS_ODOM_INJECT_ROW",
     "GLIM_CBS_ACTIVE_FACTOR_DIAGNOSTIC_ROW",
     "GLIM_CBS_ACTIVE_FACTOR_DETAIL_ROW",
     "KIMERA_CBS_ACTIVE_FACTOR_DIAGNOSTIC_ROW",
+    "KIMERA_CBS_ACTIVE_FACTOR_DETAIL_ROW",
+    "KIMERA_FACTOR_GRAPH_AUDIT_ROW",
+    "KIMERA_FACTOR_GRAPH_FACTOR_DETAIL_ROW",
     "GLIM_POSE_STAGE_ROW",
     "GLIM_TARGET_UPDATE_ROW",
     "GLIM_ROS_INPUT_TIMING_ROW",
@@ -445,6 +456,9 @@ ROW_MARKERS = (
     "GLIM_GPU_TIMING_ROW",
     "GLIM_CBS_TIMING_ROW",
     "GLIM_SCAN_HEALTH_ROW",
+    "GLIM_SCAN_DCREG_ROW",
+    "GLIM_SCAN_DCREG_BASIS_ROW",
+    "GLIM_DCREG_BELIEF_SHADOW_ROW",
     "KIMERA_BACKEND_SPINONCE_TIMING_ROW",
     "KIMERA_CBS_OUTGOING_TIMING_ROW",
     "KIMERA_OPTIMIZE_TIMING_ROW",
@@ -774,6 +788,92 @@ def apply_cbs_mode_preset(
     launch_args.update(preset)
 
 
+def selected_dcreg_calibration_sequence(
+    args: argparse.Namespace,
+    workspace: Path,
+    bag_path: str,
+    gt_path: Path,
+) -> Dict[str, Any]:
+    sequence_id = str(args.dcreg_sequence_id or "")
+    manifest_arg = args.dcreg_calibration_manifest
+    if not sequence_id and manifest_arg is None:
+        return {}
+    if not sequence_id:
+        raise ValueError(
+            "--dcreg-sequence-id is required when a DCReg calibration "
+            "manifest is supplied"
+        )
+    manifest_path = (
+        manifest_arg.resolve()
+        if manifest_arg is not None
+        else workspace / DEFAULT_DCREG_CALIBRATION_MANIFEST_RELATIVE
+    )
+    calibration_manifest = load_dcreg_calibration_manifest(manifest_path)
+    matches = [
+        sequence
+        for sequence in calibration_manifest.get("sequences", [])
+        if str(sequence.get("id", "")) == sequence_id
+    ]
+    if len(matches) != 1:
+        raise ValueError(
+            f"DCReg sequence {sequence_id!r} has {len(matches)} matches in "
+            f"{manifest_path}"
+        )
+    sequence = dict(matches[0])
+    expected_bag = str(sequence.get("container_bag", ""))
+    if expected_bag and bag_path != expected_bag:
+        raise ValueError(
+            f"bag path for {sequence_id} must match the calibration manifest: "
+            f"{expected_bag}"
+        )
+    expected_gt_value = str(sequence.get("ground_truth", ""))
+    expected_gt = (
+        Path(expected_gt_value)
+        if Path(expected_gt_value).is_absolute()
+        else workspace / expected_gt_value
+    )
+    if expected_gt_value and gt_path.resolve() != expected_gt.resolve():
+        raise ValueError(
+            f"ground-truth path for {sequence_id} must match the calibration "
+            f"manifest: {expected_gt}"
+        )
+    status = str(sequence.get("status", ""))
+    audit_policy = (
+        "skip_unverified_pose_extrinsic"
+        if status == "collect_pending_extrinsic"
+        else (
+            "skip_sensor_profile_mismatch"
+            if status == "excluded_sensor_profile"
+            else "run"
+        )
+    )
+    return {
+        "manifest_id": calibration_manifest.get("manifest_id", ""),
+        "manifest_path": str(manifest_path),
+        "schema_version": calibration_manifest.get("schema_version"),
+        "sequence": sequence,
+        "directional_audit_policy": audit_policy,
+        "covariance_changes_allowed": bool(
+            calibration_manifest.get("scope", {}).get(
+                "covariance_changes_allowed", False
+            )
+        ),
+    }
+
+
+def expected_replay_wall_duration_sec(
+    sensor_duration_sec: float,
+    launch_args: Dict[str, str],
+) -> float:
+    try:
+        bag_rate = float(launch_args.get("bag_rate", "1.0"))
+    except (TypeError, ValueError):
+        bag_rate = 1.0
+    if not math.isfinite(bag_rate) or bag_rate <= 0.0:
+        bag_rate = 1.0
+    return max(float(sensor_duration_sec), float(sensor_duration_sec) / bag_rate)
+
+
 def run_experiment(args: argparse.Namespace) -> Path:
     profile = selected_profile(args)
     if args.cbs_mode_preset and args.experiment_profile not in CBS_MODE_PRESET_PROFILES:
@@ -838,6 +938,16 @@ def run_experiment(args: argparse.Namespace) -> Path:
             raise ValueError(f"extra launch arg must look like key:=value: {item}")
         key, value = item.split(":=", 1)
         launch_args[key] = value
+    dcreg_calibration = selected_dcreg_calibration_sequence(
+        args,
+        workspace,
+        bag_path,
+        gt_path,
+    )
+    expected_replay_wall_sec = expected_replay_wall_duration_sec(
+        args.duration,
+        launch_args,
+    )
 
     launch_target = (
         f"{launch_package} {launch_file}".strip()
@@ -857,8 +967,11 @@ def run_experiment(args: argparse.Namespace) -> Path:
         "launch_args": launch_args,
         "cbs_mode_preset": args.cbs_mode_preset,
         "duration_sec": args.duration,
+        "expected_replay_wall_duration_sec": expected_replay_wall_sec,
+        "runner_timeout_sec": expected_replay_wall_sec + args.timeout_padding,
         "timeout_padding_sec": args.timeout_padding,
         "ground_truth": str(gt_path),
+        "dcreg_calibration": dcreg_calibration,
         "git": git_repos,
         "recorded_topics": {},
     }
@@ -914,7 +1027,9 @@ def run_experiment(args: argparse.Namespace) -> Path:
                 }
             write_json(run_dir / "manifest.json", manifest)
 
-        deadline = time.time() + args.duration + args.timeout_padding
+        deadline = (
+            time.time() + expected_replay_wall_sec + args.timeout_padding
+        )
         while proc.poll() is None and time.time() < deadline:
             time.sleep(1.0)
 
@@ -1004,6 +1119,28 @@ def parse_matrix_token(token: str) -> List[List[float]]:
     return rows
 
 
+def parse_colon_matrix_token(token: str) -> List[List[float]]:
+    """Parse the compact C++ matrix token: rows use ';', columns use ':'."""
+    if not token:
+        return []
+    return [
+        [to_float(part) for part in row.split(":")]
+        for row in token.split(";")
+    ]
+
+
+def parse_semicolon_vector_token(token: str) -> List[float]:
+    if not token:
+        return []
+    values: List[float] = []
+    for row in token.split(";"):
+        parts = row.split(":")
+        if len(parts) != 1:
+            return []
+        values.append(to_float(parts[0]))
+    return values
+
+
 def matrix_trace(matrix: List[List[float]]) -> float:
     if not matrix:
         return math.nan
@@ -1077,6 +1214,7 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
     belief_odom_rows: List[Dict[str, Any]] = []
     odom_outgoing_rows: List[Dict[str, Any]] = []
     odom_relative_covariance_rows: List[Dict[str, Any]] = []
+    odom_relative_covariance_matrix_rows: List[Dict[str, Any]] = []
     odom_match_rows: List[Dict[str, Any]] = []
     odom_retry_rows: List[Dict[str, Any]] = []
     bpsam_odom_add_rows: List[Dict[str, Any]] = []
@@ -1088,15 +1226,22 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
     glim_active_factor_diagnostic_rows: List[Dict[str, Any]] = []
     glim_active_factor_detail_rows: List[Dict[str, Any]] = []
     kimera_active_factor_diagnostic_rows: List[Dict[str, Any]] = []
+    kimera_active_factor_detail_rows: List[Dict[str, Any]] = []
+    kimera_factor_graph_audit_rows: List[Dict[str, Any]] = []
+    kimera_factor_graph_factor_detail_rows: List[Dict[str, Any]] = []
     glim_pose_stage_rows: List[Dict[str, Any]] = []
     glim_target_update_rows: List[Dict[str, Any]] = []
     odom_temporary_postsolve_residual_rows: List[Dict[str, Any]] = []
     temporary_linearization_residual_rows: List[Dict[str, Any]] = []
     provenance_rows: List[Dict[str, Any]] = []
     marginalization_graph_rows: List[Dict[str, Any]] = []
+    marginalization_factor_detail_rows: List[Dict[str, Any]] = []
     timing_rows: List[Dict[str, Any]] = []
     glim_timing_rows: List[Dict[str, Any]] = []
     glim_scan_health_rows: List[Dict[str, Any]] = []
+    glim_dcreg_rows: List[Dict[str, Any]] = []
+    glim_dcreg_basis_rows: List[Dict[str, Any]] = []
+    glim_dcreg_belief_shadow_rows: List[Dict[str, Any]] = []
     kimera_flow_rows: List[Dict[str, int]] = []
     kimera_odom_flow_rows: List[Dict[str, int]] = []
     liorf_odom_flow_rows: List[Dict[str, int]] = []
@@ -1238,6 +1383,9 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
                         if marker == "CBS_ODOM_RELATIVE_COVARIANCE_ROW" and len(row) < 15:
                             skipped_rows[f"{marker}:malformed_odom_relative_covariance"] += 1
                             continue
+                        if marker == "CBS_ODOM_RELATIVE_COVARIANCE_MATRIX_ROW" and len(row) < 11:
+                            skipped_rows[f"{marker}:malformed_odom_relative_covariance_matrix"] += 1
+                            continue
                         if marker.startswith("CBS_ODOM_MATCH_ROW") and len(row) < 13:
                             skipped_rows[f"{marker}:malformed_odom_match"] += 1
                             continue
@@ -1278,6 +1426,11 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
                         if marker == "CBS_MARGINALIZATION_GRAPH_ROW" and len(row) < 12:
                             skipped_rows[f"{marker}:malformed_marginalization_graph"] += 1
                             continue
+                        if marker == "CBS_MARGINALIZATION_FACTOR_DETAIL_ROW" and len(row) < 15:
+                            skipped_rows[
+                                f"{marker}:malformed_marginalization_factor_detail"
+                            ] += 1
+                            continue
                         if marker == "GLIM_CBS_ODOM_INJECT_ROW" and len(row) < 7:
                             skipped_rows[f"{marker}:malformed_glim_odom_inject"] += 1
                             continue
@@ -1296,6 +1449,24 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
                                 f"{marker}:malformed_kimera_active_factor_diagnostic"
                             ] += 1
                             continue
+                        if marker == "KIMERA_CBS_ACTIVE_FACTOR_DETAIL_ROW" and len(row) < 20:
+                            skipped_rows[
+                                f"{marker}:malformed_kimera_active_factor_detail"
+                            ] += 1
+                            continue
+                        if marker == "KIMERA_FACTOR_GRAPH_AUDIT_ROW" and len(row) < 20:
+                            skipped_rows[
+                                f"{marker}:malformed_kimera_factor_graph_audit"
+                            ] += 1
+                            continue
+                        if (
+                            marker == "KIMERA_FACTOR_GRAPH_FACTOR_DETAIL_ROW"
+                            and len(row) < 15
+                        ):
+                            skipped_rows[
+                                f"{marker}:malformed_kimera_factor_graph_factor_detail"
+                            ] += 1
+                            continue
                         if marker == "GLIM_POSE_STAGE_ROW" and len(row) < 26:
                             skipped_rows[f"{marker}:malformed_glim_pose_stage"] += 1
                             continue
@@ -1304,6 +1475,20 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
                             continue
                         if marker == "GLIM_SCAN_HEALTH_ROW" and len(row) < 28:
                             skipped_rows[f"{marker}:malformed_glim_scan_health"] += 1
+                            continue
+                        if marker == "GLIM_SCAN_DCREG_ROW" and len(row) < 37:
+                            skipped_rows[f"{marker}:malformed_glim_dcreg"] += 1
+                            continue
+                        if marker == "GLIM_SCAN_DCREG_BASIS_ROW" and len(row) < 21:
+                            skipped_rows[f"{marker}:malformed_glim_dcreg_basis"] += 1
+                            continue
+                        if (
+                            marker == "GLIM_DCREG_BELIEF_SHADOW_ROW"
+                            and len(row) < 17
+                        ):
+                            skipped_rows[
+                                f"{marker}:malformed_glim_dcreg_belief_shadow"
+                            ] += 1
                             continue
                         if marker.startswith("GLIM_") and marker.endswith("_TIMING_ROW"):
                             timing = parse_glim_timing_row(row)
@@ -1678,6 +1863,21 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
                                     }
                                 )
                             odom_relative_covariance_rows.append(parsed_row)
+                        elif marker == "CBS_ODOM_RELATIVE_COVARIANCE_MATRIX_ROW":
+                            odom_relative_covariance_matrix_rows.append(
+                                {
+                                    "direction": row[1],
+                                    "sender_robot": row[2],
+                                    "receiver_robot": row[3],
+                                    "from_key": row[4],
+                                    "to_key": row[5],
+                                    "sample_index": to_int(row[6]),
+                                    "matrix_label": row[7],
+                                    "rows": to_int(row[8]),
+                                    "cols": to_int(row[9]),
+                                    "matrix_values": row[10],
+                                }
+                            )
                         elif marker.startswith("CBS_ODOM_MATCH_ROW"):
                             parsed_row = {
                                 "direction": row[0].replace("CBS_ODOM_MATCH_ROW_", ""),
@@ -1943,6 +2143,36 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
                                     "tmp_marginals": row[11] == "true",
                                 }
                             )
+                        elif marker == "CBS_MARGINALIZATION_FACTOR_DETAIL_ROW":
+                            robot = row[1]
+                            direction = (
+                                "K2L"
+                                if robot == "k"
+                                else "L2K"
+                                if robot == "l"
+                                else "G2K"
+                                if robot == "g"
+                                else f"{robot.upper()}2?"
+                            )
+                            marginalization_factor_detail_rows.append(
+                                {
+                                    "direction": direction,
+                                    "robot": robot,
+                                    "type": row[2],
+                                    "active_filter": row[3] == "true",
+                                    "active_key_count": to_float(row[4]),
+                                    "input_factor_slots": to_float(row[5]),
+                                    "kept_factor_count": to_float(row[6]),
+                                    "factor_type": row[7],
+                                    "key_signature": row[8],
+                                    "count": to_float(row[9]),
+                                    "key_count_mean": to_float(row[10]),
+                                    "pose_key_count_mean": to_float(row[11]),
+                                    "velocity_key_count_mean": to_float(row[12]),
+                                    "bias_key_count_mean": to_float(row[13]),
+                                    "other_key_count_mean": to_float(row[14]),
+                                }
+                            )
                         elif marker == "GLIM_CBS_ODOM_INJECT_ROW":
                             glim_odom_inject_rows.append(
                                 {
@@ -2025,6 +2255,30 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
                                     "hessian_frobenius": to_float(row[19]),
                                 }
                             )
+                        elif marker == "KIMERA_CBS_ACTIVE_FACTOR_DETAIL_ROW":
+                            kimera_active_factor_detail_rows.append(
+                                {
+                                    "direction": row[1],
+                                    "receiver_robot": row[2],
+                                    "source_agent": row[3],
+                                    "local_from_key": row[4],
+                                    "local_to_key": row[5],
+                                    "source_edge": row[6],
+                                    "active_update_count": to_int(row[7]),
+                                    "active_age_sec": to_float(row[8]),
+                                    "cbs_factor_index": row[9],
+                                    "graph_factor_index": row[10],
+                                    "category": row[11],
+                                    "is_external": to_int(row[12]),
+                                    "touches_from": to_int(row[13]),
+                                    "touches_to": to_int(row[14]),
+                                    "key_count": to_int(row[15]),
+                                    "keys": row[16],
+                                    "factor_type": row[17],
+                                    "error": to_float(row[18]),
+                                    "hessian_frobenius": to_float(row[19]),
+                                }
+                            )
                         elif marker == "KIMERA_CBS_ACTIVE_FACTOR_DIAGNOSTIC_ROW":
                             kimera_active_factor_diagnostic_rows.append(
                                 {
@@ -2069,6 +2323,49 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
                                     "other_external_error_sum": to_float(row[39]),
                                     "other_external_hessian_count": to_int(row[40]),
                                     "other_external_hessian_sum": to_float(row[41]),
+                                }
+                            )
+                        elif marker == "KIMERA_FACTOR_GRAPH_AUDIT_ROW":
+                            kimera_factor_graph_audit_rows.append(
+                                {
+                                    "frame_id": to_int(row[1]),
+                                    "timestamp_sec": to_float(row[2]),
+                                    "configured_nr_states": to_int(row[3]),
+                                    "graph_slots": to_int(row[4]),
+                                    "live_factor_count": to_int(row[5]),
+                                    "null_factor_slots": to_int(row[6]),
+                                    "new_factor_count": to_int(row[7]),
+                                    "delete_slot_count": to_int(row[8]),
+                                    "num_factors_before_external": to_int(row[9]),
+                                    "inserted_external_factor_count": to_int(row[10]),
+                                    "state_value_count": to_int(row[11]),
+                                    "state_pose_count": to_int(row[12]),
+                                    "state_velocity_count": to_int(row[13]),
+                                    "state_bias_count": to_int(row[14]),
+                                    "state_landmark_count": to_int(row[15]),
+                                    "state_other_count": to_int(row[16]),
+                                    "old_smart_factor_count": to_int(row[17]),
+                                    "new_smart_factor_count": to_int(row[18]),
+                                    "landmark_count": to_int(row[19]),
+                                }
+                            )
+                        elif marker == "KIMERA_FACTOR_GRAPH_FACTOR_DETAIL_ROW":
+                            kimera_factor_graph_factor_detail_rows.append(
+                                {
+                                    "frame_id": to_int(row[1]),
+                                    "timestamp_sec": to_float(row[2]),
+                                    "configured_nr_states": to_int(row[3]),
+                                    "graph_slots": to_int(row[4]),
+                                    "live_factor_count": to_int(row[5]),
+                                    "factor_type": row[6],
+                                    "key_signature": row[7],
+                                    "count": to_float(row[8]),
+                                    "key_count_mean": to_float(row[9]),
+                                    "pose_key_count_mean": to_float(row[10]),
+                                    "velocity_key_count_mean": to_float(row[11]),
+                                    "bias_key_count_mean": to_float(row[12]),
+                                    "landmark_key_count_mean": to_float(row[13]),
+                                    "other_key_count_mean": to_float(row[14]),
                                 }
                             )
                         elif marker == "GLIM_POSE_STAGE_ROW":
@@ -2132,6 +2429,28 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
                                 glim_scan_health_rows.append(parsed_row)
                             else:
                                 skipped_rows[f"{marker}:malformed_glim_scan_health"] += 1
+                        elif marker == "GLIM_SCAN_DCREG_ROW":
+                            parsed_row = parse_glim_dcreg_row(row)
+                            if parsed_row:
+                                glim_dcreg_rows.append(parsed_row)
+                            else:
+                                skipped_rows[f"{marker}:malformed_glim_dcreg"] += 1
+                        elif marker == "GLIM_SCAN_DCREG_BASIS_ROW":
+                            parsed_row = parse_glim_dcreg_basis_row(row)
+                            if parsed_row:
+                                glim_dcreg_basis_rows.append(parsed_row)
+                            else:
+                                skipped_rows[
+                                    f"{marker}:malformed_glim_dcreg_basis"
+                                ] += 1
+                        elif marker == "GLIM_DCREG_BELIEF_SHADOW_ROW":
+                            parsed_row = parse_glim_dcreg_belief_shadow_row(row)
+                            if parsed_row:
+                                glim_dcreg_belief_shadow_rows.append(parsed_row)
+                            else:
+                                skipped_rows[
+                                    f"{marker}:malformed_glim_dcreg_belief_shadow"
+                                ] += 1
                         elif marker in {
                             "KIMERA_BACKEND_SPINONCE_TIMING_ROW",
                             "KIMERA_CBS_OUTGOING_TIMING_ROW",
@@ -2157,6 +2476,7 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
         "belief_odom": belief_odom_rows,
         "odom_outgoing": odom_outgoing_rows,
         "odom_relative_covariance": odom_relative_covariance_rows,
+        "odom_relative_covariance_matrix": odom_relative_covariance_matrix_rows,
         "odom_match": odom_match_rows,
         "odom_retry": odom_retry_rows,
         "bpsam_odom_add": bpsam_odom_add_rows,
@@ -2168,15 +2488,22 @@ def parse_log_artifacts(log_paths: Sequence[Path]) -> Dict[str, Any]:
         "glim_active_factor_diagnostic": glim_active_factor_diagnostic_rows,
         "glim_active_factor_detail": glim_active_factor_detail_rows,
         "kimera_active_factor_diagnostic": kimera_active_factor_diagnostic_rows,
+        "kimera_active_factor_detail": kimera_active_factor_detail_rows,
+        "kimera_factor_graph_audit": kimera_factor_graph_audit_rows,
+        "kimera_factor_graph_factor_detail": kimera_factor_graph_factor_detail_rows,
         "glim_pose_stage": glim_pose_stage_rows,
         "glim_target_update": glim_target_update_rows,
         "odom_temporary_postsolve_residual": odom_temporary_postsolve_residual_rows,
         "temporary_linearization_residual": temporary_linearization_residual_rows,
         "provenance": provenance_rows,
         "marginalization_graph": marginalization_graph_rows,
+        "marginalization_factor_detail": marginalization_factor_detail_rows,
         "timing": timing_rows,
         "glim_timing": glim_timing_rows,
         "glim_scan_health": glim_scan_health_rows,
+        "glim_dcreg": glim_dcreg_rows,
+        "glim_dcreg_basis": glim_dcreg_basis_rows,
+        "glim_dcreg_belief_shadow": glim_dcreg_belief_shadow_rows,
         "kimera_flow": kimera_flow_rows,
         "kimera_odom_flow": kimera_odom_flow_rows,
         "liorf_odom_flow": liorf_odom_flow_rows,
@@ -2461,6 +2788,106 @@ def parse_glim_scan_health_row(row: List[str]) -> Dict[str, Any]:
                 "scan_health_hessian_enable": to_int(row[48]) if len(row) >= 49 else 0,
             }
         )
+    return parsed
+
+
+def parse_glim_dcreg_row(row: List[str]) -> Dict[str, Any]:
+    if len(row) < 37:
+        return {}
+    return {
+        "marker": row[0],
+        "stamp": to_float(row[1]),
+        "frame_id": to_int(row[2]),
+        "registration_type": row[3],
+        "valid": to_int(row[4]),
+        "status": row[5],
+        "condition_threshold": to_float(row[6]),
+        "translation_block_rank": to_int(row[7]),
+        "rotation_block_rank": to_int(row[8]),
+        "rotation_negative_eigenvalues": to_int(row[9]),
+        "translation_negative_eigenvalues": to_int(row[10]),
+        "rotation_condition": to_float(row[11]),
+        "translation_condition": to_float(row[12]),
+        "rotation_eigenvalue_0": to_float(row[13]),
+        "rotation_eigenvalue_1": to_float(row[14]),
+        "rotation_eigenvalue_2": to_float(row[15]),
+        "translation_eigenvalue_0": to_float(row[16]),
+        "translation_eigenvalue_1": to_float(row[17]),
+        "translation_eigenvalue_2": to_float(row[18]),
+        "rotation_spectral_ratio_0": to_float(row[19]),
+        "rotation_spectral_ratio_1": to_float(row[20]),
+        "rotation_spectral_ratio_2": to_float(row[21]),
+        "translation_spectral_ratio_0": to_float(row[22]),
+        "translation_spectral_ratio_1": to_float(row[23]),
+        "translation_spectral_ratio_2": to_float(row[24]),
+        "local_rx_weakness": to_float(row[25]),
+        "local_ry_weakness": to_float(row[26]),
+        "local_rz_weakness": to_float(row[27]),
+        "local_tx_weakness": to_float(row[28]),
+        "local_ty_weakness": to_float(row[29]),
+        "local_tz_weakness": to_float(row[30]),
+        "rotation_weak_mode_0": to_int(row[31]),
+        "rotation_weak_mode_1": to_int(row[32]),
+        "rotation_weak_mode_2": to_int(row[33]),
+        "translation_weak_mode_0": to_int(row[34]),
+        "translation_weak_mode_1": to_int(row[35]),
+        "translation_weak_mode_2": to_int(row[36]),
+    }
+
+
+def parse_glim_dcreg_basis_row(row: List[str]) -> Dict[str, Any]:
+    if len(row) < 21:
+        return {}
+    parsed: Dict[str, Any] = {
+        "marker": row[0],
+        "stamp": to_float(row[1]),
+        "frame_id": to_int(row[2]),
+    }
+    axes = ("x", "y", "z")
+    offset = 3
+    for space in ("rotation", "translation"):
+        for mode in range(3):
+            for axis in axes:
+                parsed[f"{space}_mode_{mode}_{axis}"] = to_float(row[offset])
+                offset += 1
+    return parsed
+
+
+def parse_glim_dcreg_belief_shadow_row(row: List[str]) -> Dict[str, Any]:
+    if len(row) < 17:
+        return {}
+    relative_mu = parse_semicolon_vector_token(row[6])
+    covariance = parse_colon_matrix_token(row[14])
+    if (
+        len(relative_mu) != 6
+        or len(covariance) != 6
+        or any(len(matrix_row) != 6 for matrix_row in covariance)
+    ):
+        return {}
+    parsed: Dict[str, Any] = {
+        "marker": row[0],
+        "publish_stamp": to_float(row[1]),
+        "from_index": to_int(row[2]),
+        "to_index": to_int(row[3]),
+        "from_stamp": to_float(row[4]),
+        "to_stamp": to_float(row[5]),
+        "measured_tx": to_float(row[7]),
+        "measured_ty": to_float(row[8]),
+        "measured_tz": to_float(row[9]),
+        "measured_qx": to_float(row[10]),
+        "measured_qy": to_float(row[11]),
+        "measured_qz": to_float(row[12]),
+        "measured_qw": to_float(row[13]),
+        "sender_health_alpha": to_float(row[15]),
+        "covariance_mode": row[16],
+    }
+    for index, value in enumerate(relative_mu):
+        parsed[f"relative_mu_{index}"] = value
+    for matrix_row in range(6):
+        for matrix_col in range(6):
+            parsed[f"covariance_{matrix_row}{matrix_col}"] = covariance[
+                matrix_row
+            ][matrix_col]
     return parsed
 
 
@@ -3452,6 +3879,77 @@ def glim_scan_health_summary(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]
     ]
 
 
+def glim_dcreg_summary(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    if not rows:
+        return []
+
+    valid_rows = [row for row in rows if to_int(str(row.get("valid", 0))) != 0]
+    rotation_condition = [
+        row.get("rotation_condition", math.nan) for row in valid_rows
+    ]
+    translation_condition = [
+        row.get("translation_condition", math.nan) for row in valid_rows
+    ]
+    status_counts = Counter(str(row.get("status", "")) for row in rows)
+
+    summary: Dict[str, Any] = {
+        "count": len(rows),
+        "valid_count": len(valid_rows),
+        "invalid_count": len(rows) - len(valid_rows),
+        "condition_threshold": (
+            valid_rows[0].get("condition_threshold", math.nan)
+            if valid_rows
+            else math.nan
+        ),
+        "rotation_condition_p50": percentile(rotation_condition, 0.50),
+        "rotation_condition_p95": percentile(rotation_condition, 0.95),
+        "rotation_condition_max": numeric_stats(rotation_condition)["max"],
+        "translation_condition_p50": percentile(translation_condition, 0.50),
+        "translation_condition_p95": percentile(translation_condition, 0.95),
+        "translation_condition_max": numeric_stats(translation_condition)["max"],
+        "rotation_weak_scan_count": sum(
+            1
+            for row in valid_rows
+            if any(
+                to_int(str(row.get(f"rotation_weak_mode_{mode}", 0))) != 0
+                for mode in range(3)
+            )
+        ),
+        "translation_weak_scan_count": sum(
+            1
+            for row in valid_rows
+            if any(
+                to_int(str(row.get(f"translation_weak_mode_{mode}", 0))) != 0
+                for mode in range(3)
+            )
+        ),
+        "rotation_block_rank_min": numeric_stats(
+            [row.get("rotation_block_rank", math.nan) for row in valid_rows]
+        )["min"],
+        "translation_block_rank_min": numeric_stats(
+            [row.get("translation_block_rank", math.nan) for row in valid_rows]
+        )["min"],
+        "rotation_indefinite_scan_count": sum(
+            1
+            for row in valid_rows
+            if to_int(str(row.get("rotation_negative_eigenvalues", 0))) > 0
+        ),
+        "translation_indefinite_scan_count": sum(
+            1
+            for row in valid_rows
+            if to_int(str(row.get("translation_negative_eigenvalues", 0))) > 0
+        ),
+        "status_counts": json.dumps(dict(sorted(status_counts.items()))),
+    }
+    for axis in ("rx", "ry", "rz", "tx", "ty", "tz"):
+        values = [
+            row.get(f"local_{axis}_weakness", math.nan) for row in valid_rows
+        ]
+        summary[f"local_{axis}_weakness_mean"] = numeric_stats(values)["mean"]
+        summary[f"local_{axis}_weakness_p95"] = percentile(values, 0.95)
+    return [summary]
+
+
 def glim_active_factor_detail_summary(
     rows_in: List[Dict[str, Any]]
 ) -> List[Dict[str, Any]]:
@@ -3659,6 +4157,191 @@ def marginalization_graph_summary(rows_in: List[Dict[str, Any]]) -> List[Dict[st
                 )["sum"],
             }
         )
+    return rows
+
+
+def marginalization_factor_detail_summary(
+    rows_in: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    by_group: Dict[Tuple[str, str, str, str, str], List[Dict[str, Any]]] = defaultdict(list)
+    for row in rows_in:
+        by_group[
+            (
+                str(row.get("direction", "")),
+                str(row.get("robot", "")),
+                str(row.get("type", "")),
+                str(row.get("factor_type", "")),
+                str(row.get("key_signature", "")),
+            )
+        ].append(row)
+    for (direction, robot, graph_type, factor_type, key_signature), values in sorted(
+        by_group.items()
+    ):
+        rows.append(
+            {
+                "direction": direction,
+                "robot": robot,
+                "type": graph_type,
+                "factor_type": factor_type,
+                "key_signature": key_signature,
+                "rows": len(values),
+                "count_sum": numeric_stats(row.get("count") for row in values)["sum"],
+                "count_p50": percentile(
+                    (row.get("count", math.nan) for row in values), 0.50
+                ),
+                "count_p95": percentile(
+                    (row.get("count", math.nan) for row in values), 0.95
+                ),
+                "key_count_mean": numeric_stats(
+                    row.get("key_count_mean") for row in values
+                )["mean"],
+                "pose_key_count_mean": numeric_stats(
+                    row.get("pose_key_count_mean") for row in values
+                )["mean"],
+                "velocity_key_count_mean": numeric_stats(
+                    row.get("velocity_key_count_mean") for row in values
+                )["mean"],
+                "bias_key_count_mean": numeric_stats(
+                    row.get("bias_key_count_mean") for row in values
+                )["mean"],
+                "other_key_count_mean": numeric_stats(
+                    row.get("other_key_count_mean") for row in values
+                )["mean"],
+            }
+        )
+    rows.sort(
+        key=lambda row: (
+            str(row.get("direction", "")),
+            -float(row.get("count_sum", 0.0) or 0.0),
+            str(row.get("factor_type", "")),
+            str(row.get("key_signature", "")),
+        )
+    )
+    return rows
+
+
+def kimera_factor_graph_audit_summary(
+    rows_in: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    if not rows_in:
+        return []
+
+    def stat(field: str, key: str) -> float:
+        return numeric_stats(row.get(field) for row in rows_in)[key]
+
+    return [
+        {
+            "updates": len(rows_in),
+            "configured_nr_states_p50": percentile(
+                (row.get("configured_nr_states", math.nan) for row in rows_in), 0.50
+            ),
+            "graph_slots_p50": percentile(
+                (row.get("graph_slots", math.nan) for row in rows_in), 0.50
+            ),
+            "graph_slots_p95": percentile(
+                (row.get("graph_slots", math.nan) for row in rows_in), 0.95
+            ),
+            "graph_slots_max": stat("graph_slots", "max"),
+            "live_factors_p50": percentile(
+                (row.get("live_factor_count", math.nan) for row in rows_in), 0.50
+            ),
+            "live_factors_p95": percentile(
+                (row.get("live_factor_count", math.nan) for row in rows_in), 0.95
+            ),
+            "live_factors_max": stat("live_factor_count", "max"),
+            "null_slots_p50": percentile(
+                (row.get("null_factor_slots", math.nan) for row in rows_in), 0.50
+            ),
+            "null_slots_p95": percentile(
+                (row.get("null_factor_slots", math.nan) for row in rows_in), 0.95
+            ),
+            "null_slots_max": stat("null_factor_slots", "max"),
+            "state_values_p50": percentile(
+                (row.get("state_value_count", math.nan) for row in rows_in), 0.50
+            ),
+            "pose_states_p50": percentile(
+                (row.get("state_pose_count", math.nan) for row in rows_in), 0.50
+            ),
+            "velocity_states_p50": percentile(
+                (row.get("state_velocity_count", math.nan) for row in rows_in), 0.50
+            ),
+            "bias_states_p50": percentile(
+                (row.get("state_bias_count", math.nan) for row in rows_in), 0.50
+            ),
+            "old_smart_factors_p50": percentile(
+                (row.get("old_smart_factor_count", math.nan) for row in rows_in), 0.50
+            ),
+            "new_smart_factors_p50": percentile(
+                (row.get("new_smart_factor_count", math.nan) for row in rows_in), 0.50
+            ),
+            "landmark_count_p50": percentile(
+                (row.get("landmark_count", math.nan) for row in rows_in), 0.50
+            ),
+            "new_factors_p50": percentile(
+                (row.get("new_factor_count", math.nan) for row in rows_in), 0.50
+            ),
+            "delete_slots_p50": percentile(
+                (row.get("delete_slot_count", math.nan) for row in rows_in), 0.50
+            ),
+            "external_factors_sum": stat("inserted_external_factor_count", "sum"),
+        }
+    ]
+
+
+def kimera_factor_graph_factor_detail_summary(
+    rows_in: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    by_group: Dict[Tuple[str, str], List[Dict[str, Any]]] = defaultdict(list)
+    for row in rows_in:
+        by_group[
+            (
+                str(row.get("factor_type", "")),
+                str(row.get("key_signature", "")),
+            )
+        ].append(row)
+
+    for (factor_type, key_signature), values in sorted(by_group.items()):
+        rows.append(
+            {
+                "factor_type": factor_type,
+                "key_signature": key_signature,
+                "rows": len(values),
+                "count_sum": numeric_stats(row.get("count") for row in values)["sum"],
+                "count_p50": percentile(
+                    (row.get("count", math.nan) for row in values), 0.50
+                ),
+                "count_p95": percentile(
+                    (row.get("count", math.nan) for row in values), 0.95
+                ),
+                "key_count_mean": numeric_stats(
+                    row.get("key_count_mean") for row in values
+                )["mean"],
+                "pose_key_count_mean": numeric_stats(
+                    row.get("pose_key_count_mean") for row in values
+                )["mean"],
+                "velocity_key_count_mean": numeric_stats(
+                    row.get("velocity_key_count_mean") for row in values
+                )["mean"],
+                "bias_key_count_mean": numeric_stats(
+                    row.get("bias_key_count_mean") for row in values
+                )["mean"],
+                "landmark_key_count_mean": numeric_stats(
+                    row.get("landmark_key_count_mean") for row in values
+                )["mean"],
+                "other_key_count_mean": numeric_stats(
+                    row.get("other_key_count_mean") for row in values
+                )["mean"],
+            }
+        )
+    rows.sort(
+        key=lambda row: (
+            -float(row.get("count_sum", 0.0) or 0.0),
+            str(row.get("factor_type", "")),
+            str(row.get("key_signature", "")),
+        )
+    )
     return rows
 
 
@@ -4565,11 +5248,109 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
     marginalization_graph_rows = marginalization_graph_summary(
         parsed["marginalization_graph"]
     )
+    marginalization_factor_detail_rows = marginalization_factor_detail_summary(
+        parsed["marginalization_factor_detail"]
+    )
+    kimera_factor_graph_audit_rows = kimera_factor_graph_audit_summary(
+        parsed["kimera_factor_graph_audit"]
+    )
+    kimera_factor_graph_factor_detail_rows = (
+        kimera_factor_graph_factor_detail_summary(
+            parsed["kimera_factor_graph_factor_detail"]
+        )
+    )
     timing_summary_rows = timing_summary(parsed["timing"])
     glim_timing_summary_rows = timing_summary(parsed["glim_timing"])
     glim_scan_health_summary_rows = glim_scan_health_summary(
         parsed["glim_scan_health"]
     )
+    glim_dcreg_summary_rows = glim_dcreg_summary(parsed["glim_dcreg"])
+    directional_gt_poses = (
+        load_ground_truth_poses(gt_path)
+        if gt_path is not None and gt_path.is_file()
+        else []
+    )
+    directional_estimator_poses = load_estimator_odometry(run_dir).get(
+        "glim", []
+    )
+    directional_alignment_yaw = math.nan
+    if directional_gt_poses and directional_estimator_poses:
+        directional_glim_trajectory = [
+            (pose["t"], (pose["x"], pose["y"], pose["z"]))
+            for pose in directional_estimator_poses
+        ]
+        directional_gt_trajectory = [
+            (pose["t"], (pose["x"], pose["y"], pose["z"]))
+            for pose in directional_gt_poses
+        ]
+        directional_source, directional_target, _ = pair_trajectories(
+            directional_glim_trajectory,
+            directional_gt_trajectory,
+        )
+        if len(directional_source) >= 2:
+            directional_alignment_yaw, _, _ = align_se2(
+                directional_source,
+                directional_target,
+            )
+    dcreg_calibration = manifest.get("dcreg_calibration", {})
+    directional_audit_policy = str(
+        dcreg_calibration.get("directional_audit_policy", "run")
+    )
+    if directional_audit_policy == "run":
+        (
+            glim_dcreg_directional_audit_rows,
+            glim_dcreg_directional_summary_rows,
+            glim_dcreg_directional_comparison_rows,
+            glim_dcreg_directional_correlation_rows,
+            glim_dcreg_directional_metadata,
+        ) = build_directional_audit(
+            parsed["glim_dcreg"],
+            parsed["glim_dcreg_basis"],
+            parsed["glim_dcreg_belief_shadow"],
+            directional_gt_poses,
+            estimator_poses=directional_estimator_poses,
+            ground_truth_from_estimator_world_yaw=directional_alignment_yaw,
+            ground_truth_horizontal_sigma_m=(
+                0.008
+                if str(manifest.get("experiment_profile", "")).startswith("m3dgr")
+                else 0.0
+            ),
+            ground_truth_vertical_sigma_m=(
+                0.015
+                if str(manifest.get("experiment_profile", "")).startswith("m3dgr")
+                else 0.0
+            ),
+            ground_truth_relative_endpoint_variance_factor=2.0,
+            ground_truth_noise_model_label=(
+                "M3DGR published RTK receiver accuracy sensitivity: "
+                "0.008 m horizontal, 0.015 m vertical; independent endpoints"
+                if str(manifest.get("experiment_profile", "")).startswith("m3dgr")
+                else ""
+            ),
+        )
+    else:
+        shadow_edges = {
+            (int(row["from_index"]), int(row["to_index"]))
+            for row in parsed["glim_dcreg_belief_shadow"]
+        }
+        glim_dcreg_directional_audit_rows = []
+        glim_dcreg_directional_summary_rows = []
+        glim_dcreg_directional_comparison_rows = []
+        glim_dcreg_directional_correlation_rows = []
+        glim_dcreg_directional_metadata = {
+            "raw_shadow_rows": len(parsed["glim_dcreg_belief_shadow"]),
+            "unique_shadow_edges": len(shadow_edges),
+            "matched_edges": 0,
+            "missing_dcreg_edges": 0,
+            "missing_basis_edges": 0,
+            "missing_ground_truth_edges": 0,
+            "audit_spaces": "not_audited",
+            "audit_skipped": True,
+            "audit_skip_reason": directional_audit_policy,
+            "calibration_sequence_id": dcreg_calibration.get(
+                "sequence", {}
+            ).get("id", ""),
+        }
     glim_pose_stage_summary_rows = glim_pose_stage_summary(parsed["glim_pose_stage"])
     glim_active_factor_diagnostic_summary_rows = (
         glim_active_factor_diagnostic_summary(parsed["glim_active_factor_diagnostic"])
@@ -4579,6 +5360,9 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
     )
     kimera_active_factor_diagnostic_summary_rows = (
         glim_active_factor_diagnostic_summary(parsed["kimera_active_factor_diagnostic"])
+    )
+    kimera_active_factor_detail_summary_rows = glim_active_factor_detail_summary(
+        parsed["kimera_active_factor_detail"]
     )
     duration_sec = to_float(str(manifest.get("duration_sec", math.nan)))
     odom_outgoing_rate_rows = rate_summary(
@@ -4627,6 +5411,10 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
     )
     write_dicts_csv(artifacts_dir / "cbs_belief_odom.csv", parsed["belief_odom"])
     write_dicts_csv(artifacts_dir / "cbs_odom_outgoing.csv", parsed["odom_outgoing"])
+    write_dicts_csv(
+        artifacts_dir / "cbs_odom_relative_covariance_matrices.csv",
+        parsed["odom_relative_covariance_matrix"],
+    )
     write_dicts_csv(artifacts_dir / "cbs_odom_matches.csv", parsed["odom_match"])
     write_dicts_csv(artifacts_dir / "cbs_odom_retries.csv", parsed["odom_retry"])
     write_dicts_csv(artifacts_dir / "cbs_bpsam_odom_add.csv", parsed["bpsam_odom_add"])
@@ -4663,6 +5451,18 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
         parsed["kimera_active_factor_diagnostic"],
     )
     write_dicts_csv(
+        artifacts_dir / "kimera_cbs_active_factor_details.csv",
+        parsed["kimera_active_factor_detail"],
+    )
+    write_dicts_csv(
+        artifacts_dir / "kimera_factor_graph_audit.csv",
+        parsed["kimera_factor_graph_audit"],
+    )
+    write_dicts_csv(
+        artifacts_dir / "kimera_factor_graph_factor_details.csv",
+        parsed["kimera_factor_graph_factor_detail"],
+    )
+    write_dicts_csv(
         artifacts_dir / "glim_pose_stage.csv",
         parsed["glim_pose_stage"],
     )
@@ -4679,6 +5479,10 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
         artifacts_dir / "cbs_marginalization_graph.csv",
         parsed["marginalization_graph"],
     )
+    write_dicts_csv(
+        artifacts_dir / "cbs_marginalization_factor_details.csv",
+        parsed["marginalization_factor_detail"],
+    )
     write_dicts_csv(artifacts_dir / "kimera_flow.csv", parsed["kimera_flow"])
     write_dicts_csv(artifacts_dir / "kimera_odom_flow.csv", parsed["kimera_odom_flow"])
     write_dicts_csv(artifacts_dir / "liorf_odom_flow.csv", parsed["liorf_odom_flow"])
@@ -4688,6 +5492,22 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
     write_dicts_csv(
         artifacts_dir / "glim_scan_health.csv",
         parsed["glim_scan_health"],
+    )
+    write_dicts_csv(
+        artifacts_dir / "glim_dcreg.csv",
+        parsed["glim_dcreg"],
+    )
+    write_dicts_csv(
+        artifacts_dir / "glim_dcreg_basis.csv",
+        parsed["glim_dcreg_basis"],
+    )
+    write_dicts_csv(
+        artifacts_dir / "glim_dcreg_belief_shadow.csv",
+        parsed["glim_dcreg_belief_shadow"],
+    )
+    write_dicts_csv(
+        artifacts_dir / "glim_dcreg_directional_audit.csv",
+        glim_dcreg_directional_audit_rows,
     )
     write_dicts_csv(artifacts_dir / "trajectory_metrics.csv", trajectory_rows)
     write_dicts_csv(
@@ -4763,11 +5583,39 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
         artifacts_dir / "marginalization_graph_summary.csv",
         marginalization_graph_rows,
     )
+    write_dicts_csv(
+        artifacts_dir / "marginalization_factor_detail_summary.csv",
+        marginalization_factor_detail_rows,
+    )
+    write_dicts_csv(
+        artifacts_dir / "kimera_factor_graph_audit_summary.csv",
+        kimera_factor_graph_audit_rows,
+    )
+    write_dicts_csv(
+        artifacts_dir / "kimera_factor_graph_factor_detail_summary.csv",
+        kimera_factor_graph_factor_detail_rows,
+    )
     write_dicts_csv(artifacts_dir / "kimera_timing_summary.csv", timing_summary_rows)
     write_dicts_csv(artifacts_dir / "glim_timing_summary.csv", glim_timing_summary_rows)
     write_dicts_csv(
         artifacts_dir / "glim_scan_health_summary.csv",
         glim_scan_health_summary_rows,
+    )
+    write_dicts_csv(
+        artifacts_dir / "glim_dcreg_summary.csv",
+        glim_dcreg_summary_rows,
+    )
+    write_dicts_csv(
+        artifacts_dir / "glim_dcreg_directional_summary.csv",
+        glim_dcreg_directional_summary_rows,
+    )
+    write_dicts_csv(
+        artifacts_dir / "glim_dcreg_directional_threshold_comparison.csv",
+        glim_dcreg_directional_comparison_rows,
+    )
+    write_dicts_csv(
+        artifacts_dir / "glim_dcreg_directional_correlation.csv",
+        glim_dcreg_directional_correlation_rows,
     )
     write_dicts_csv(
         artifacts_dir / "glim_pose_stage_summary.csv",
@@ -4784,6 +5632,10 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
     write_dicts_csv(
         artifacts_dir / "kimera_cbs_active_factor_diagnostic_summary.csv",
         kimera_active_factor_diagnostic_summary_rows,
+    )
+    write_dicts_csv(
+        artifacts_dir / "kimera_cbs_active_factor_detail_summary.csv",
+        kimera_active_factor_detail_summary_rows,
     )
     write_dicts_csv(
         artifacts_dir / "odom_outgoing_rate_summary.csv",
@@ -4903,13 +5755,32 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
         "temporary_postsolve_pull_summary": temporary_postsolve_pull_rows,
         "odom_factor_covariance_samples": odom_factor_covariance_sample_rows,
         "marginalization_graph_summary": marginalization_graph_rows,
+        "marginalization_factor_detail_summary": marginalization_factor_detail_rows,
+        "kimera_factor_graph_audit_summary": kimera_factor_graph_audit_rows,
+        "kimera_factor_graph_factor_detail_summary": (
+            kimera_factor_graph_factor_detail_rows
+        ),
         "kimera_timing_summary": timing_summary_rows,
         "glim_timing_summary": glim_timing_summary_rows,
         "glim_scan_health_summary": glim_scan_health_summary_rows,
+        "glim_dcreg_summary": glim_dcreg_summary_rows,
+        "glim_dcreg_directional_audit_metadata": (
+            glim_dcreg_directional_metadata
+        ),
+        "glim_dcreg_directional_summary": (
+            glim_dcreg_directional_summary_rows
+        ),
+        "glim_dcreg_directional_threshold_comparison": (
+            glim_dcreg_directional_comparison_rows
+        ),
+        "glim_dcreg_directional_correlation": (
+            glim_dcreg_directional_correlation_rows
+        ),
         "glim_pose_stage_summary": glim_pose_stage_summary_rows,
         "glim_active_factor_diagnostic_summary": glim_active_factor_diagnostic_summary_rows,
         "glim_active_factor_detail_summary": glim_active_factor_detail_summary_rows,
         "kimera_active_factor_diagnostic_summary": kimera_active_factor_diagnostic_summary_rows,
+        "kimera_active_factor_detail_summary": kimera_active_factor_detail_summary_rows,
         "injected_belief_covariance_samples": injected_cov_rows,
         "skipped_log_rows": parsed["skipped_rows"],
     }
@@ -5955,6 +6826,52 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
             )
         )
 
+    kimera_active_factor_details = summary.get(
+        "kimera_active_factor_detail_summary", []
+    )
+    if kimera_active_factor_details:
+        lines.append("## Kimera Active Factor Details\n")
+        lines.append(
+            "Rows are parsed from `KIMERA_CBS_ACTIVE_FACTOR_DETAIL_ROW`; "
+            "raw rows are saved in `parsed/kimera_cbs_active_factor_details.csv`.\n"
+        )
+        rows = sorted(
+            kimera_active_factor_details,
+            key=lambda row: float(row.get("hessian_frobenius_sum", 0.0) or 0.0),
+            reverse=True,
+        )
+        lines.append(
+            markdown_table(
+                [
+                    "direction",
+                    "category",
+                    "factor type",
+                    "count",
+                    "keys p50",
+                    "err p50",
+                    "err p95",
+                    "H p50",
+                    "H p95",
+                    "H sum",
+                ],
+                [
+                    [
+                        row.get("direction", ""),
+                        row.get("category", ""),
+                        row.get("factor_type", ""),
+                        row.get("count", 0),
+                        row.get("key_count_p50", math.nan),
+                        row.get("error_p50", math.nan),
+                        row.get("error_p95", math.nan),
+                        row.get("hessian_frobenius_p50", math.nan),
+                        row.get("hessian_frobenius_p95", math.nan),
+                        row.get("hessian_frobenius_sum", math.nan),
+                    ]
+                    for row in rows
+                ],
+            )
+        )
+
     pose_stage = summary.get("glim_pose_stage_summary", [])
     if pose_stage:
         lines.append("## GLIM Pose Stage\n")
@@ -6154,6 +7071,272 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
             )
         )
 
+    glim_dcreg = summary.get("glim_dcreg_summary", [])
+    if glim_dcreg:
+        lines.append("## GLIM DCReg Stage 1\n")
+        lines.append(
+            "Rows are read-only diagnostics parsed from `GLIM_SCAN_DCREG_ROW`; "
+            "full rows are saved in `parsed/glim_dcreg.csv`. Schur spectra and "
+            "axis contributions use GTSAM local tangent order "
+            "`[rx, ry, rz, tx, ty, tz]`. These values do not alter optimization, "
+            "factors, weights, poses, CBS, or Kimera.\n"
+        )
+        lines.append(
+            markdown_table(
+                [
+                    "count",
+                    "valid",
+                    "threshold",
+                    "R cond p50/p95/max",
+                    "T cond p50/p95/max",
+                    "weak scans R/T",
+                    "min block rank R/T",
+                    "indefinite scans R/T",
+                    "axis weakness mean rx/ry/rz",
+                    "axis weakness mean tx/ty/tz",
+                    "status counts",
+                ],
+                [
+                    [
+                        row.get("count", 0),
+                        (
+                            f"{row.get('valid_count', 0)} / "
+                            f"{row.get('invalid_count', 0)} invalid"
+                        ),
+                        row.get("condition_threshold", math.nan),
+                        (
+                            f"{format_float(row.get('rotation_condition_p50', math.nan))} / "
+                            f"{format_float(row.get('rotation_condition_p95', math.nan))} / "
+                            f"{format_float(row.get('rotation_condition_max', math.nan))}"
+                        ),
+                        (
+                            f"{format_float(row.get('translation_condition_p50', math.nan))} / "
+                            f"{format_float(row.get('translation_condition_p95', math.nan))} / "
+                            f"{format_float(row.get('translation_condition_max', math.nan))}"
+                        ),
+                        (
+                            f"{row.get('rotation_weak_scan_count', 0)} / "
+                            f"{row.get('translation_weak_scan_count', 0)}"
+                        ),
+                        (
+                            f"{format_float(row.get('rotation_block_rank_min', math.nan))} / "
+                            f"{format_float(row.get('translation_block_rank_min', math.nan))}"
+                        ),
+                        (
+                            f"{row.get('rotation_indefinite_scan_count', 0)} / "
+                            f"{row.get('translation_indefinite_scan_count', 0)}"
+                        ),
+                        (
+                            f"{format_float(row.get('local_rx_weakness_mean', math.nan))} / "
+                            f"{format_float(row.get('local_ry_weakness_mean', math.nan))} / "
+                            f"{format_float(row.get('local_rz_weakness_mean', math.nan))}"
+                        ),
+                        (
+                            f"{format_float(row.get('local_tx_weakness_mean', math.nan))} / "
+                            f"{format_float(row.get('local_ty_weakness_mean', math.nan))} / "
+                            f"{format_float(row.get('local_tz_weakness_mean', math.nan))}"
+                        ),
+                        row.get("status_counts", ""),
+                    ]
+                    for row in glim_dcreg
+                ],
+            )
+        )
+
+    directional_metadata = summary.get(
+        "glim_dcreg_directional_audit_metadata", {}
+    )
+    if directional_metadata.get("raw_shadow_rows", 0):
+        lines.append("## GLIM DCReg Directional Belief Audit\n")
+        if directional_metadata.get("audit_skipped", False):
+            lines.append(
+                "**Directional error projection was deliberately skipped.** "
+                f"Policy: `{directional_metadata.get('audit_skip_reason', 'n/a')}`; "
+                f"sequence: `{directional_metadata.get('calibration_sequence_id', 'n/a')}`. "
+                "DCReg spectra, bases, and outgoing shadow beliefs were still "
+                "collected, but they must not be fitted against an incompatible "
+                "or unverified ground-truth body frame.\n"
+            )
+        else:
+            lines.append(
+                "This is a read-only consistency audit of the exact relative "
+                "covariance GLIM published. For each latest edge revision it projects "
+                "the available ground-truth residual and published covariance onto "
+                "the DCReg eigenvectors at the edge target. It does not "
+                "change GLIM, Kimera, CBS, factors, or weights. A calibrated scalar "
+                "direction would have mean NIS near 1 and about 95% of absolute "
+                "normalized errors below 1.96; the samples are temporally correlated, "
+                "so these are diagnostics rather than an iid statistical test.\n"
+            )
+        lines.append(
+            f"- Shadow rows / unique edges / matched edges: "
+            f"`{directional_metadata.get('raw_shadow_rows', 0)} / "
+            f"{directional_metadata.get('unique_shadow_edges', 0)} / "
+            f"{directional_metadata.get('matched_edges', 0)}`"
+        )
+        lines.append(
+            f"- Missing DCReg / basis / ground truth edges: "
+            f"`{directional_metadata.get('missing_dcreg_edges', 0)} / "
+            f"{directional_metadata.get('missing_basis_edges', 0)} / "
+            f"{directional_metadata.get('missing_ground_truth_edges', 0)}`"
+        )
+        lines.append(
+            f"- Ground-truth orientation available / audited spaces: "
+            f"`{directional_metadata.get('ground_truth_orientation_available', False)} / "
+            f"{directional_metadata.get('audit_spaces', 'n/a')}`"
+        )
+        if (
+            not directional_metadata.get("audit_skipped", False)
+            and not directional_metadata.get(
+            "ground_truth_orientation_available", False
+            )
+        ):
+            lines.append(
+                "- The GT quaternions are constant, so rotation consistency is "
+                "**not identifiable and is not reported**. Translation uses an "
+                "SE2 world alignment and GLIM's from-pose orientation to express "
+                "the GT endpoint displacement in the local tangent frame."
+            )
+        if directional_metadata.get("ground_truth_noise_model_label"):
+            lines.append(
+                "- Reference-aware columns add the published M3DGR RTK "
+                "accuracy as a sensitivity model with independent endpoint "
+                "errors. They are not a claim that the processed GT samples "
+                "have exactly that covariance."
+            )
+        lines.append(
+            "- Full per-mode rows: "
+            "`parsed/glim_dcreg_directional_audit.csv`; threshold sweep: "
+            "`parsed/glim_dcreg_directional_threshold_comparison.csv`.\n"
+        )
+
+        threshold_10_rows = [
+            row
+            for row in summary.get("glim_dcreg_directional_summary", [])
+            if abs(float(row.get("threshold", math.nan)) - 10.0) < 1.0e-9
+        ]
+        if threshold_10_rows:
+            lines.append("### Threshold 10 calibration split\n")
+            lines.append(
+                markdown_table(
+                    [
+                        "space",
+                        "class",
+                        "n",
+                        "error RMS",
+                        "GLIM sigma p50",
+                        "GLIM |z| p50/p95",
+                        "GLIM NIS mean",
+                        "ref-aware |z| p50/p95",
+                        "ref-aware NIS mean",
+                        "ref-aware coverage 95%",
+                    ],
+                    [
+                        [
+                            row.get("space", ""),
+                            row.get("classification", ""),
+                            row.get("count", 0),
+                            row.get("absolute_error_rms", math.nan),
+                            row.get("projected_sigma_p50", math.nan),
+                            (
+                                f"{format_float(row.get('normalized_abs_error_p50', math.nan))} / "
+                                f"{format_float(row.get('normalized_abs_error_p95', math.nan))}"
+                            ),
+                            row.get("directional_nis_mean", math.nan),
+                            (
+                                f"{format_float(row.get('reference_aware_normalized_abs_error_p50', math.nan))} / "
+                                f"{format_float(row.get('reference_aware_normalized_abs_error_p95', math.nan))}"
+                            ),
+                            row.get(
+                                "reference_aware_directional_nis_mean",
+                                math.nan,
+                            ),
+                            row.get(
+                                "reference_aware_coverage_1_96sigma",
+                                math.nan,
+                            ),
+                        ]
+                        for row in threshold_10_rows
+                    ],
+                )
+            )
+
+        comparison_rows = summary.get(
+            "glim_dcreg_directional_threshold_comparison", []
+        )
+        if comparison_rows:
+            lines.append("### Threshold sweep: weak versus strong\n")
+            lines.append(
+                markdown_table(
+                    [
+                        "threshold",
+                        "space",
+                        "weak/strong n",
+                        "weak/strong error RMS",
+                        "error RMS ratio",
+                        "weak/strong NIS mean",
+                        "NIS ratio",
+                        "weak/strong ref-aware NIS",
+                    ],
+                    [
+                        [
+                            row.get("threshold", math.nan),
+                            row.get("space", ""),
+                            (
+                                f"{row.get('weak_count', 0)} / "
+                                f"{row.get('strong_count', 0)}"
+                            ),
+                            (
+                                f"{format_float(row.get('weak_absolute_error_rms', math.nan))} / "
+                                f"{format_float(row.get('strong_absolute_error_rms', math.nan))}"
+                            ),
+                            row.get("weak_over_strong_error_rms", math.nan),
+                            (
+                                f"{format_float(row.get('weak_directional_nis_mean', math.nan))} / "
+                                f"{format_float(row.get('strong_directional_nis_mean', math.nan))}"
+                            ),
+                            row.get("weak_over_strong_nis_mean", math.nan),
+                            (
+                                f"{format_float(row.get('weak_reference_aware_nis_mean', math.nan))} / "
+                                f"{format_float(row.get('strong_reference_aware_nis_mean', math.nan))}"
+                            ),
+                        ]
+                        for row in comparison_rows
+                    ],
+                )
+            )
+
+        correlation_rows = summary.get(
+            "glim_dcreg_directional_correlation", []
+        )
+        if correlation_rows:
+            lines.append("### Continuous rank correlation\n")
+            lines.append(
+                markdown_table(
+                    [
+                        "space",
+                        "n",
+                        "ratio vs |error| Spearman",
+                        "ratio vs normalized |error| Spearman",
+                    ],
+                    [
+                        [
+                            row.get("space", ""),
+                            row.get("count", 0),
+                            row.get(
+                                "spearman_log_ratio_vs_log_abs_error",
+                                math.nan,
+                            ),
+                            row.get(
+                                "spearman_log_ratio_vs_log_normalized_abs_error",
+                                math.nan,
+                            ),
+                        ]
+                        for row in correlation_rows
+                    ],
+                )
+            )
+
     merge_quality = summary.get("merge_quality_summary", [])
     if merge_quality:
         lines.append("## Merge Quality\n")
@@ -6195,6 +7378,105 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
                         row.get("step_mean", math.nan),
                     ]
                     for row in merge_quality
+                ],
+            )
+        )
+
+    kimera_graph = summary.get("kimera_factor_graph_audit_summary", [])
+    if kimera_graph:
+        lines.append("## Kimera Native Factor Graph Audit\n")
+        lines.append(
+            "Rows are parsed from `KIMERA_FACTOR_GRAPH_AUDIT_ROW`; full rows are "
+            "saved in `parsed/kimera_factor_graph_audit.csv`. `graph slots` is "
+            "the raw `NonlinearFactorGraph::size()` slot count, while `live` "
+            "counts non-null factors that still exist in those slots.\n"
+        )
+        lines.append(
+            markdown_table(
+                [
+                    "updates",
+                    "states cfg",
+                    "slots p50/p95/max",
+                    "live p50/p95/max",
+                    "null p50/p95/max",
+                    "x/v/b p50",
+                    "smart old/new p50",
+                    "external sum",
+                ],
+                [
+                    [
+                        row.get("updates", 0),
+                        row.get("configured_nr_states_p50", math.nan),
+                        (
+                            f"{format_float(row.get('graph_slots_p50', math.nan))} / "
+                            f"{format_float(row.get('graph_slots_p95', math.nan))} / "
+                            f"{format_float(row.get('graph_slots_max', math.nan))}"
+                        ),
+                        (
+                            f"{format_float(row.get('live_factors_p50', math.nan))} / "
+                            f"{format_float(row.get('live_factors_p95', math.nan))} / "
+                            f"{format_float(row.get('live_factors_max', math.nan))}"
+                        ),
+                        (
+                            f"{format_float(row.get('null_slots_p50', math.nan))} / "
+                            f"{format_float(row.get('null_slots_p95', math.nan))} / "
+                            f"{format_float(row.get('null_slots_max', math.nan))}"
+                        ),
+                        (
+                            f"{format_float(row.get('pose_states_p50', math.nan))} / "
+                            f"{format_float(row.get('velocity_states_p50', math.nan))} / "
+                            f"{format_float(row.get('bias_states_p50', math.nan))}"
+                        ),
+                        (
+                            f"{format_float(row.get('old_smart_factors_p50', math.nan))} / "
+                            f"{format_float(row.get('new_smart_factors_p50', math.nan))}"
+                        ),
+                        row.get("external_factors_sum", math.nan),
+                    ]
+                    for row in kimera_graph
+                ],
+            )
+        )
+
+    kimera_graph_details = summary.get(
+        "kimera_factor_graph_factor_detail_summary", []
+    )
+    if kimera_graph_details:
+        top_rows = sorted(
+            kimera_graph_details,
+            key=lambda row: -float(row.get("count_sum", 0.0) or 0.0),
+        )[:16]
+        lines.append("## Kimera Native Factor Graph Factors\n")
+        lines.append(
+            "Dominant live factor types in Kimera's native smoother graph. "
+            "`key sig` counts GTSAM symbol types touched by each factor.\n"
+        )
+        lines.append(
+            markdown_table(
+                [
+                    "factor type",
+                    "key sig",
+                    "rows",
+                    "count sum",
+                    "count p50",
+                    "count p95",
+                    "pose keys",
+                    "vel keys",
+                    "bias keys",
+                ],
+                [
+                    [
+                        row.get("factor_type", ""),
+                        row.get("key_signature", ""),
+                        row.get("rows", 0),
+                        row.get("count_sum", math.nan),
+                        row.get("count_p50", math.nan),
+                        row.get("count_p95", math.nan),
+                        row.get("pose_key_count_mean", math.nan),
+                        row.get("velocity_key_count_mean", math.nan),
+                        row.get("bias_key_count_mean", math.nan),
+                    ]
+                    for row in top_rows
                 ],
             )
         )
@@ -6241,6 +7523,48 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
                         row.get("removed_anchor_belief_sum", math.nan),
                     ]
                     for row in marg_graph
+                ],
+            )
+        )
+    marg_factor_details = summary.get("marginalization_factor_detail_summary", [])
+    if marg_factor_details:
+        top_rows = sorted(
+            marg_factor_details,
+            key=lambda row: -float(row.get("count_sum", 0.0) or 0.0),
+        )[:16]
+        lines.append("## Outgoing Covariance Graph Factors\n")
+        lines.append(
+            "Dominant factor types in the exact marginal graph used for "
+            "`jointMarginalInformation()`. `key sig` counts GTSAM symbol "
+            "types per factor, for example `x:2|v:2|b:1` is an IMU factor "
+            "touching two poses, two velocities, and one bias.\n"
+        )
+        lines.append(
+            markdown_table(
+                [
+                    "direction",
+                    "robot",
+                    "type",
+                    "factor type",
+                    "key sig",
+                    "rows",
+                    "count sum",
+                    "count p50",
+                    "count p95",
+                ],
+                [
+                    [
+                        row.get("direction", ""),
+                        row.get("robot", ""),
+                        row.get("type", ""),
+                        row.get("factor_type", ""),
+                        row.get("key_signature", ""),
+                        row.get("rows", 0),
+                        row.get("count_sum", math.nan),
+                        row.get("count_p50", math.nan),
+                        row.get("count_p95", math.nan),
+                    ]
+                    for row in top_rows
                 ],
             )
         )
@@ -6392,6 +7716,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--name", default="")
     run_parser.add_argument("--bag-path", default=DEFAULT_BAG_PATH)
     run_parser.add_argument("--gt-path", type=Path, default=None)
+    run_parser.add_argument(
+        "--dcreg-calibration-manifest",
+        type=Path,
+        default=None,
+    )
+    run_parser.add_argument("--dcreg-sequence-id", default="")
     run_parser.add_argument("--duration", type=float, default=60.0)
     run_parser.add_argument("--timeout-padding", type=float, default=40.0)
     run_parser.add_argument(

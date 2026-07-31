@@ -1,5 +1,9 @@
 # M3DGR CBS + GLIM + Kimera Handoff
 
+> Superseded for current work by
+> `2026-07-29_m3dgr_cbs_persistent_handoff.md`. Keep this file as historical
+> context; do not use its older final prompt as the current experiment default.
+
 This note is for continuing the project in a fresh chat without replaying the
 whole debugging history.
 
@@ -49,19 +53,20 @@ T_i^-1 T_j
 Receiver matches sender timestamps to local states and creates a BetweenFactor
 style residual from the received relative pose and covariance.
 
-The current preferred default for M3DGR CBS-on experiments is:
+The current preferred default for M3DGR CBS-on experiments, updated on
+2026-07-29, is:
 
 ```text
-active_window_temporary
+persistent
 ```
 
-This means CBS odometry factors are inserted into the active fixed-lag graph,
-kept while both endpoint states remain active, then removed before/around
-marginalization so CBS information is not inherited into the marginal prior.
+This means CBS odometry factors are inserted as ordinary nonlinear factors and
+are allowed to contribute to the fixed-lag marginal prior.
 
 Important: the older successful S3E Square 1 baseline used
-`temporary_linear`. Do not erase that historical fact. But for the current
-M3DGR work, the requested default is active-window temporary beliefs.
+`temporary_linear`, and the earlier M3DGR experiments used
+`active_window_temporary`. Do not erase those historical facts. For current
+M3DGR work, the requested default is persistent beliefs.
 
 ## Current Default M3DGR CBS Setup
 
@@ -81,8 +86,8 @@ Current CBS defaults in the M3DGR GLIM+Kimera path:
 
 ```text
 enable_cbs_bridge:=true
-glim_cbs_mode:=active_window_temporary
-cbs_odom_factor_mode:=active_window_temporary
+glim_cbs_mode:=inject_persistent
+cbs_odom_factor_mode:=persistent
 cbs_health_aware_enable:=false
 cbs_enable_soft_reset:=true
 cbs_d_reset:=0.1
@@ -112,8 +117,8 @@ The Python experiment wrapper was also updated:
 For M3DGR `m3dgr_glim_kimera`, it now defaults to:
 
 ```text
-glim_cbs_mode=active_window_temporary
-cbs_odom_factor_mode=active_window_temporary
+glim_cbs_mode=inject_persistent
+cbs_odom_factor_mode=persistent
 glim_cbs_odom_receiver_match_mode=duration_aware_edge
 glim_cbs_odom_max_horizon_pairs_per_update=25
 kimera_cbs_odom_max_horizon_pairs_per_update=6
@@ -299,7 +304,7 @@ For the estimator posterior panels specifically:
 - use `sigma_max_cm` as the conservative interpretable 1-sigma scalar
 - do not treat `uncertainty_frobenius_norm` as the main covariance metric
 
-## Active-Window Test Evidence
+## Historical Active-Window Test Evidence
 
 A 60 s Dynamic01 active-window raw CBS live Rerun test was run:
 
@@ -411,7 +416,7 @@ Do not casually change:
 CBS algorithmic code
 relative-belief semantics
 M3DGR body-frame extrinsic
-active_window_temporary default for M3DGR CBS-on
+persistent default for M3DGR CBS-on
 health-aware modes
 covariance scaling
 ```
@@ -422,7 +427,7 @@ Current raw CBS-on experiments should keep:
 cbs_health_aware_enable:=false
 covariance scale:=1.0
 duration-gated short-horizon odometry
-active-window temporary factor lifetime
+persistent factor lifetime
 ```
 
 ## Suggested Opening Prompt For A New Chat
@@ -436,9 +441,9 @@ Current dataset: M3DGR. Local sequences:
 - Outdoor01
 - Wheel-float01
 
-Current default for M3DGR CBS-on is active-window temporary beliefs:
-- glim_cbs_mode:=active_window_temporary
-- cbs_odom_factor_mode:=active_window_temporary
+Current default for M3DGR CBS-on is persistent beliefs:
+- glim_cbs_mode:=inject_persistent
+- cbs_odom_factor_mode:=persistent
 - cbs_health_aware_enable:=false
 - covariance scales 1.0
 - duration gate enabled
@@ -451,6 +456,10 @@ Canonical Rerun dashboard:
 notes/rerun_raw_cbs_dashboard.md
 Canonical live Rerun experiment setup:
 notes/m3dgr_live_rerun_experiment_setup.md
+Canonical Kimera factor-graph Rerun setup:
+src/cbsms/docs/2026-07-17_kimera_factor_graph_rerun_setup.md
+Canonical two-way CBS factor-graph Rerun setup (use for future factor-graph experiments):
+src/cbsms/docs/2026-07-20_cbs_on_dual_factor_graph_rerun_setup.md
 Blueprint helper:
 src/cbsms/tools/send_raw_cbs_dashboard_blueprint.py
 
