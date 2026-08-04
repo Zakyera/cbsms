@@ -974,6 +974,9 @@ def run_experiment(args: argparse.Namespace) -> Path:
         "dcreg_calibration": dcreg_calibration,
         "git": git_repos,
         "recorded_topics": {},
+        "dcreg_health_csv": str(
+            run_dir / "parsed" / "glim_dcreg_health.csv"
+        ),
     }
     write_json(run_dir / "manifest.json", manifest)
 
@@ -990,8 +993,15 @@ def run_experiment(args: argparse.Namespace) -> Path:
         )
     else:
         roslaunch_target = shlex.quote(launch_file)
+    container_run_dir = container_path(
+        workspace, run_dir, args.container_workspace
+    )
     launch_command = ros_env_command(
-        f"roslaunch {roslaunch_target} " + launch_arg_text,
+        "export CBSMS_RUN_DIR="
+        + shlex.quote(container_run_dir)
+        + " && "
+        + f"roslaunch {roslaunch_target} "
+        + launch_arg_text,
         args.container_workspace,
         ros_env,
     )
@@ -5193,6 +5203,113 @@ def load_manifest(run_dir: Path) -> Dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def load_dcreg_health_csv(path: Path) -> List[Dict[str, Any]]:
+    """Load the dedicated sidecar CSV without consulting console text."""
+    if not path.is_file():
+        return []
+    string_fields = {
+        "configuration_fingerprint",
+        "sensor_identifier",
+        "registration_type",
+        "pose_ordering",
+        "tangent_convention",
+        "record_kind",
+        "status",
+        "reference_source",
+        "offline_profile_status",
+        "baseline_update_reason",
+        "invalid_reason",
+    }
+    rows: List[Dict[str, Any]] = []
+    with path.open("r", encoding="utf-8", newline="") as stream:
+        for raw in csv.DictReader(stream):
+            row: Dict[str, Any] = {}
+            for key, value in raw.items():
+                if key in string_fields:
+                    row[key] = value
+                elif key in {"schema_version", "frame_id", "factor_id"}:
+                    row[key] = to_int(value)
+                else:
+                    row[key] = to_float(value)
+            rows.append(row)
+    return rows
+
+
+def dcreg_health_summary(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+    aggregate = [row for row in rows if row.get("record_kind") == "aggregate"]
+    factors = [row for row in rows if row.get("record_kind") == "factor"]
+    if not aggregate:
+        return {}
+
+    rotation_health = [
+        row.get(f"rotation_health_smoothed_{mode}", math.nan)
+        for row in aggregate
+        for mode in range(3)
+    ]
+    translation_health = [
+        row.get(f"translation_health_smoothed_{mode}", math.nan)
+        for row in aggregate
+        for mode in range(3)
+    ]
+    runtimes = [row.get("evaluation_time_ms", math.nan) for row in aggregate]
+    reason_counts = Counter(
+        str(row.get("baseline_update_reason", "")) for row in aggregate
+    )
+    resolution_rows: List[Dict[str, Any]] = []
+    by_resolution: Dict[float, List[Dict[str, Any]]] = defaultdict(list)
+    for row in factors:
+        resolution = row.get("resolution", math.nan)
+        if math.isfinite(resolution):
+            by_resolution[float(resolution)].append(row)
+    for resolution, values in sorted(by_resolution.items()):
+        resolution_rows.append(
+            {
+                "resolution": resolution,
+                "count": len(values),
+                "inlier_count_p50": percentile(
+                    [row.get("inlier_count", math.nan) for row in values], 0.50
+                ),
+                "inlier_fraction_p50": percentile(
+                    [row.get("inlier_fraction", math.nan) for row in values], 0.50
+                ),
+                "hessian_trace_p50": percentile(
+                    [row.get("hessian_trace", math.nan) for row in values], 0.50
+                ),
+            }
+        )
+
+    return {
+        "schema_versions": sorted(
+            {
+                int(row.get("schema_version", 0))
+                for row in rows
+                if int(row.get("schema_version", 0)) > 0
+            }
+        ),
+        "aggregate_count": len(aggregate),
+        "factor_count": len(factors),
+        "valid_count": sum(int(row.get("valid", 0)) != 0 for row in aggregate),
+        "reference_ready_count": sum(
+            int(row.get("reference_ready", 0)) != 0 for row in aggregate
+        ),
+        "health_available_count": sum(
+            int(row.get("health_available", 0)) != 0 for row in aggregate
+        ),
+        "baseline_update_accepted_count": sum(
+            int(row.get("baseline_update_accepted", 0)) != 0 for row in aggregate
+        ),
+        "baseline_reason_counts": dict(sorted(reason_counts.items())),
+        "rotation_health_p05": percentile(rotation_health, 0.05),
+        "rotation_health_min": numeric_stats(rotation_health)["min"],
+        "translation_health_p05": percentile(translation_health, 0.05),
+        "translation_health_min": numeric_stats(translation_health)["min"],
+        "evaluation_time_ms_p50": percentile(runtimes, 0.50),
+        "evaluation_time_ms_p95": percentile(runtimes, 0.95),
+        "evaluation_time_ms_max": numeric_stats(runtimes)["max"],
+        "resolution_support": resolution_rows,
+    }
+
+
 def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, Any]:
     manifest = load_manifest(run_dir)
     if gt_path is None:
@@ -5200,6 +5317,10 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
         gt_path = Path(gt_text) if gt_text else Path()
 
     parsed = parse_log_artifacts([run_dir / "roslaunch.log"])
+    dcreg_health_rows = load_dcreg_health_csv(
+        run_dir / "parsed" / "glim_dcreg_health.csv"
+    )
+    dcreg_health_summary_row = dcreg_health_summary(dcreg_health_rows)
     trajectory_rows = compute_trajectory_metrics(run_dir, gt_path) if gt_path else []
     trajectory_timeline_rows = (
         trajectory_error_timeline(run_dir, gt_path) if gt_path else []
@@ -5764,6 +5885,7 @@ def generate_report(run_dir: Path, gt_path: Optional[Path] = None) -> Dict[str, 
         "glim_timing_summary": glim_timing_summary_rows,
         "glim_scan_health_summary": glim_scan_health_summary_rows,
         "glim_dcreg_summary": glim_dcreg_summary_rows,
+        "glim_dcreg_health_summary": dcreg_health_summary_row,
         "glim_dcreg_directional_audit_metadata": (
             glim_dcreg_directional_metadata
         ),
@@ -7071,6 +7193,93 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
             )
         )
 
+    dcreg_health = summary.get("glim_dcreg_health_summary", {})
+    if dcreg_health:
+        lines.append("## GLIM DCReg Observability Health (Stage 1)\n")
+        lines.append(
+            "This section is loaded only from the dedicated asynchronous "
+            "`parsed/glim_dcreg_health.csv`; it is not inferred from console "
+            "text. Health is dimensionless relative directional observability "
+            "health, not expected metric error, correctness probability, or "
+            "calibrated covariance.\n"
+        )
+        lines.append(
+            markdown_table(
+                [
+                    "schema",
+                    "aggregate/factor rows",
+                    "valid",
+                    "reference ready",
+                    "health available",
+                    "reference updates",
+                    "R health p05/min",
+                    "T health p05/min",
+                    "runtime p50/p95/max ms",
+                ],
+                [
+                    [
+                        ",".join(
+                            str(value)
+                            for value in dcreg_health.get("schema_versions", [])
+                        ),
+                        (
+                            f"{dcreg_health.get('aggregate_count', 0)} / "
+                            f"{dcreg_health.get('factor_count', 0)}"
+                        ),
+                        dcreg_health.get("valid_count", 0),
+                        dcreg_health.get("reference_ready_count", 0),
+                        dcreg_health.get("health_available_count", 0),
+                        dcreg_health.get("baseline_update_accepted_count", 0),
+                        (
+                            f"{format_float(dcreg_health.get('rotation_health_p05', math.nan))} / "
+                            f"{format_float(dcreg_health.get('rotation_health_min', math.nan))}"
+                        ),
+                        (
+                            f"{format_float(dcreg_health.get('translation_health_p05', math.nan))} / "
+                            f"{format_float(dcreg_health.get('translation_health_min', math.nan))}"
+                        ),
+                        (
+                            f"{format_float(dcreg_health.get('evaluation_time_ms_p50', math.nan))} / "
+                            f"{format_float(dcreg_health.get('evaluation_time_ms_p95', math.nan))} / "
+                            f"{format_float(dcreg_health.get('evaluation_time_ms_max', math.nan))}"
+                        ),
+                    ]
+                ],
+            )
+        )
+        resolution_support = dcreg_health.get("resolution_support", [])
+        if resolution_support:
+            lines.append("### Per-resolution registration support\n")
+            lines.append(
+                markdown_table(
+                    [
+                        "resolution",
+                        "rows",
+                        "inliers p50",
+                        "inlier fraction p50",
+                        "H trace p50",
+                    ],
+                    [
+                        [
+                            row.get("resolution", math.nan),
+                            row.get("count", 0),
+                            row.get("inlier_count_p50", math.nan),
+                            row.get("inlier_fraction_p50", math.nan),
+                            row.get("hessian_trace_p50", math.nan),
+                        ]
+                        for row in resolution_support
+                    ],
+                )
+            )
+        lines.append(
+            "Reference update reasons: `"
+            + json.dumps(
+                dcreg_health.get("baseline_reason_counts", {}),
+                sort_keys=True,
+            )
+            + "`.\n"
+        )
+
     glim_dcreg = summary.get("glim_dcreg_summary", [])
     if glim_dcreg:
         lines.append("## GLIM DCReg Stage 1\n")
@@ -7690,6 +7899,11 @@ def render_markdown_report(run_dir: Path, manifest: Dict[str, Any], summary: Dic
     lines.append("## Artifacts\n")
     lines.append("- Raw log: `roslaunch.log`")
     lines.append("- Raw odometry CSVs: `trajectories/`")
+    if summary.get("glim_dcreg_health_summary"):
+        lines.append(
+            "- Dedicated DCReg health CSV: "
+            "`parsed/glim_dcreg_health.csv`"
+        )
     lines.append("- TUM trajectories for evo: `trajectories/tum/`")
     lines.append("- Parsed CBS CSVs: `parsed/`")
     lines.append("- Evo outputs: `parsed/evo/`")

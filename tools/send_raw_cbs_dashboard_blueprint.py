@@ -334,89 +334,96 @@ def build_blueprint(rrb, active_tab=0):
   )
 
   dcreg_spatial = rrb.Spatial3DView(
-      origin="/glim/dcreg/spatial",
+      origin="/glim/dcreg_health/spatial",
       contents=[
-          "+ /glim/dcreg/spatial/**",
+          "+ /glim/dcreg_health/spatial/**",
           "+ /glim/factor_graph_inspector/spatial/context/trajectory_history",
           "+ /glim/factor_graph_inspector/spatial/states/latest_pose",
           "- /__properties/**",
       ],
-      name="DCReg Weak Directions in World",
+      name="DCReg Weak Modes in World",
       background=[16, 18, 22],
   )
 
   dcreg_condition = ts_view(
       rrb,
-      "DCReg Schur Condition Ratios",
-      "/glim/dcreg/condition",
+      "DCReg Aligned-Mode Condition Ratios",
+      "/glim/dcreg_health",
       [
-          "+ /glim/dcreg/condition/rotation",
-          "+ /glim/dcreg/condition/translation",
-          "+ /glim/dcreg/condition/threshold",
+          "+ /glim/dcreg_health/condition_ratio/**",
+          "+ /glim/dcreg_health/condition/threshold",
       ],
   )
 
   dcreg_rotation_eigenvalues = ts_view(
       rrb,
-      "Rotation Schur Eigenvalues",
-      "/glim/dcreg/eigenvalue/rotation",
-      ["+ /glim/dcreg/eigenvalue/rotation/**"],
+      "Aligned Rotation Schur Eigenvalues",
+      "/glim/dcreg_health/eigenvalue/aligned_rotation",
+      ["+ /glim/dcreg_health/eigenvalue/aligned_rotation/**"],
   )
 
   dcreg_translation_eigenvalues = ts_view(
       rrb,
-      "Translation Schur Eigenvalues",
-      "/glim/dcreg/eigenvalue/translation",
-      ["+ /glim/dcreg/eigenvalue/translation/**"],
+      "Aligned Translation Schur Eigenvalues",
+      "/glim/dcreg_health/eigenvalue/aligned_translation",
+      ["+ /glim/dcreg_health/eigenvalue/aligned_translation/**"],
   )
 
   dcreg_rotation_weakness = ts_view(
       rrb,
-      "Local Rotation Axis Weakness",
-      "/glim/dcreg/axis_weakness/rotation",
-      ["+ /glim/dcreg/axis_weakness/rotation/**"],
+      "Relative Rotation Health",
+      "/glim/dcreg_health/health",
+      [
+          "+ /glim/dcreg_health/health/raw_rotation/**",
+          "+ /glim/dcreg_health/health/smoothed_rotation/**",
+          "+ /glim/dcreg_health/relative_mask/rotation/**",
+      ],
   )
 
   dcreg_translation_weakness = ts_view(
       rrb,
-      "Local Translation Axis Weakness",
-      "/glim/dcreg/axis_weakness/translation",
-      ["+ /glim/dcreg/axis_weakness/translation/**"],
+      "Relative Translation Health",
+      "/glim/dcreg_health/health",
+      [
+          "+ /glim/dcreg_health/health/raw_translation/**",
+          "+ /glim/dcreg_health/health/smoothed_translation/**",
+          "+ /glim/dcreg_health/relative_mask/translation/**",
+      ],
   )
 
   dcreg_status = ts_view(
       rrb,
-      "DCReg Diagnostic Status",
-      "/glim/dcreg",
+      "DCReg Health Status and Runtime",
+      "/glim/dcreg_health",
       [
-          "+ /glim/dcreg/status/**",
-          "+ /glim/dcreg/rank/**",
+          "+ /glim/dcreg_health/status/**",
+          "+ /glim/dcreg_health/rank/**",
+          "+ /glim/dcreg_health/runtime/**",
       ],
   )
 
   dual_dcreg_condition = ts_view(
       rrb,
-      "DCReg Schur Condition Ratios",
-      "/glim/dcreg/condition",
+      "DCReg Condition Ratios",
+      "/glim/dcreg_health",
       [
-          "+ /glim/dcreg/condition/rotation",
-          "+ /glim/dcreg/condition/translation",
-          "+ /glim/dcreg/condition/threshold",
+          "+ /glim/dcreg_health/condition_ratio/**",
+          "+ /glim/dcreg_health/condition/threshold",
       ],
   )
 
   dual_dcreg_rotation_weakness = ts_view(
       rrb,
-      "Local Rotation Axis Weakness",
-      "/glim/dcreg/axis_weakness/rotation",
-      ["+ /glim/dcreg/axis_weakness/rotation/**"],
+      "Relative Rotation Health",
+      "/glim/dcreg_health/health",
+      ["+ /glim/dcreg_health/health/smoothed_rotation/**"],
   )
 
   dual_dcreg_translation_weakness = ts_view(
       rrb,
-      "Local Translation Axis Weakness",
-      "/glim/dcreg/axis_weakness/translation",
-      ["+ /glim/dcreg/axis_weakness/translation/**"],
+      "Relative Translation Health",
+      "/glim/dcreg_health/health",
+      ["+ /glim/dcreg_health/health/smoothed_translation/**"],
   )
 
   dual_glim_factor_graph = rrb.Spatial3DView(
@@ -939,7 +946,7 @@ def build_blueprint(rrb, active_tab=0):
           dual_dcreg_rotation_weakness,
           dual_dcreg_translation_weakness,
           column_shares=[1.0, 1.0, 1.0],
-          name="GLIM DCReg Stage 1",
+          name="GLIM DCReg Relative Observability Health",
       ),
       row_shares=[2.2, 1.0, 0.8, 0.8, 0.8],
       name="CBS-On Dual Factor Graph Inspector",
@@ -967,10 +974,10 @@ def build_blueprint(rrb, active_tab=0):
           dcreg_rotation_weakness,
           dcreg_translation_weakness,
           column_shares=[1.0, 1.0],
-          name="Local-Tangent Physical Axis Contributions",
+          name="Relative Directional Health",
       ),
       row_shares=[1.8, 1.0, 1.0],
-      name="GLIM DCReg Stage 1 Inspector",
+      name="GLIM DCReg Observability-Health Inspector",
   )
 
   root = rrb.Tabs(
