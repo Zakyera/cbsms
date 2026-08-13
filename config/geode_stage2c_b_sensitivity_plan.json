@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "frozen_before_sensitivity_evaluation": true,
+  "status": "pending_no_defensible_published_bounds",
+  "nominal_calibration": {
+    "E": "released Gamma IMU-to-LiDAR transform from gamma_config.yaml",
+    "S": "released Carol/Gamma-LiDAR-to-Beta/GT transform from gamma2GT_gnss.py"
+  },
+  "perturbations": [],
+  "reason": "The released sources and public calibration issue provide no quantitative rotation or translation uncertainty for E or S. Arbitrary perturbation magnitudes would not be defensible and will not be tuned from evaluation data.",
+  "prohibited": [
+    "fit E from GLIM output",
+    "fit S from GLIM output",
+    "fit a time offset from evaluation error",
+    "choose bounds after observing sensitivity correlations"
+  ],
+  "reported_result": "nominal released-calibration evaluation only; sensitivity remains pending"
+}

@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "semantics": "passive GEODE Gamma local-only GLIM/DCReg pilot",
+  "base_config_template": "/workspace/cbs_gtsam4.3/stage2a_implementation/configs/D",
+  "pointcloud_topic": "/geode/gamma/points",
+  "imu_topic": "/imu/data",
+  "lidar_frame_id": "geode_gamma_livox",
+  "imu_frame_id": "geode_gamma_xsens_imu",
+  "sensor_identifier": "geode_gamma_livox_xsens",
+  "acceleration_units": "m/s^2",
+  "acc_scale": 1.0,
+  "imu_noise": {
+    "imu_acc_noise": 0.0055741025513357766,
+    "imu_gyro_noise": 0.0051441059541810427,
+    "imu_int_noise": 0.001,
+    "imu_bias_noise": 0.00012078671772058479,
+    "source_note": "gamma_config.yaml accel_std, first gyro_std, accel_rw; duplicated second gyro_std is documented as the angular random-walk entry and is not silently substituted"
+  },
+  "rotation_matrix_policy": "nearest_SO3_SVD_of_released_6_decimal_matrix",
+  "T_I_L_released": [
+    [0.999620, 0.027463, 0.002445, 0.049258],
+    [-0.027517, 0.999299, 0.025398, -0.012500],
+    [-0.001746, -0.025456, 0.999674, 0.026946],
+    [0.0, 0.0, 0.0, 1.0]
+  ],
+  "T_L_I_glim_tum": [
+    -0.049536186400307256,
+    0.011824376053758042,
+    -0.026740191619607567,
+    0.012715736530884673,
+    -0.0010479379741671127,
+    0.01374741387043301,
+    0.99982409476985223
+  ],
+  "S_gamma_lidar_to_beta_gt": {
+    "translation_m": [0.0305, -0.5959, 0.0902],
+    "quaternion_wxyz_released": [0.9998828, -0.0057758, 0.0022253, 0.0140019]
+  },
+  "runtime": {
+    "odometry_threads": 1,
+    "preprocess_threads": 1,
+    "incoming_k_to_g_enabled": false,
+    "outgoing_g_to_k_enabled": true,
+    "outgoing_marginal_source": "direct",
+    "cbs_mode": "observe_only",
+    "dcreg_health_mode": "log_only",
+    "dcreg_reference_source": "session",
+    "dcreg_edge_metadata_enabled": true,
+    "health_to_error_calibration": false,
+    "covariance_modification": false,
+    "active_weighting": false
+  }
+}
