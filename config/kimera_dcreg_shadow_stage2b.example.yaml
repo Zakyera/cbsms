@@ -1,0 +1,32 @@
+# Optional passive receiver-side Stage 2B analysis.
+# Load this mapping into the private namespace of kimera_vio_ros.
+# Omitting the section, or setting enabled=false, constructs no Stage 2B
+# subscribers, caches, queues, worker, publisher, UUID, or log.
+dcreg_shadow_analysis:
+  enabled: false
+
+  belief_topic: /kimera/cbs/odom_belief_in
+  metadata_topic: /glim/cbs/dcreg_edge_health_metadata
+  output_topic: /kimera/cbs/dcreg_shadow_analysis
+  structured_csv_path: ""
+
+  maximum_pending_beliefs: 512
+  maximum_pending_metadata: 512
+  maximum_receiver_states: 4096
+  association_timeout_sec: 2.0
+
+  compute_raw_disagreement: true
+
+  # Kept false because an exact joint Kimera relative covariance is not
+  # exposed without an added optimizer-thread marginal query. Endpoint
+  # marginals are never added as an approximation.
+  compute_receiver_relative_covariance: false
+  compute_normalized_disagreement: false
+  beta_receiver_covariance: 1.0
+  model_floor_rotation: 0.0
+  model_floor_translation: 0.0
+  pseudoinverse_relative_threshold: 1.0e-10
+  negative_eigenvalue_tolerance: 1.0e-10
+
+  publication_queue_capacity: 256
+  overflow_policy: drop_newest
