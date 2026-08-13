@@ -895,8 +895,10 @@ def run_experiment(args: argparse.Namespace) -> Path:
     run_id = f"{stamp}_{slugify(args.name)}" if args.name else stamp
     run_dir = runs_root / run_id
     traj_dir = run_dir / "trajectories"
+    parsed_dir = run_dir / "parsed"
     run_dir.mkdir(parents=True, exist_ok=False)
     traj_dir.mkdir(parents=True, exist_ok=True)
+    parsed_dir.mkdir(parents=True, exist_ok=True)
 
     git_repos = {
         name: git_info(workspace / "src" / name)

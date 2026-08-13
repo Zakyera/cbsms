@@ -295,10 +295,12 @@ section remain `off`.
 ## Structured logging and reporting
 
 The asynchronous bounded logger writes one aggregate row and one row per
-matching factor to `glim_dcreg_health.csv`. The odometry thread only attempts
-a non-blocking bounded enqueue; formatting and file I/O happen on its worker.
-A full queue or contended queue lock drops the diagnostic sample rather than
-blocking odometry. With logging disabled, no row is formatted or written.
+matching factor to `glim_dcreg_health.csv`. Passive Hessian capture and health
+analysis run in the odometry path; publication of the completed diagnostic
+uses a non-blocking bounded enqueue. CSV formatting and file I/O happen on the
+logger worker. A full queue or contended queue lock drops the diagnostic
+sample rather than blocking odometry. With logging disabled, no row is
+formatted or written. This is the frozen Stage 1 architecture.
 
 Schema version 1 contains:
 

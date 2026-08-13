@@ -1,5 +1,8 @@
 # GLIM DCReg observability-health sidecar: Stage 1 report
 
+> Historical implementation report. The authoritative final status is
+> `docs/2026-08-04_glim_dcreg_health_stage1_closeout.md`.
+
 Date: 2026-07-31
 
 Status: **implementation and unit validation complete; baseline regression
