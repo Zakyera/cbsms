@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-08-12T12:32:28Z",
+  "sequence": "Stairs_Gamma",
+  "scientific_role": "same-Gamma healthy-reference screening candidate only",
+  "official_sources": {
+    "dataset_page": "https://thisparticle.github.io/geode/",
+    "download_root": "https://drive.google.com/drive/folders/1hEn3sBAvQhSdUFnGMZCCv-W0Ynj2rWBs",
+    "gamma_inventory_folder": "https://drive.google.com/drive/folders/1w3mi2iUHVHQq3kytuJV3p4BPFYN2V2gL",
+    "stairs_folder": "https://drive.google.com/drive/folders/11HUQeR8h0LKJhp3XOBeGM20FdwygoYMk",
+    "stairs_gamma_folder": "https://drive.google.com/drive/folders/162gErfmiDXYAnDQOpNXDFVpONfHvpc5k",
+    "bag_file": "https://drive.google.com/file/d/1Hnyv8XRM4zIcaB5UpDvcqeMe46otJ7jr/view",
+    "dataset_repository": "https://github.com/PengYu-Team/GEODE_dataset",
+    "dataset_repository_commit": "c6e930623d4fed450d7fc50e16e3ffe0288b692b"
+  },
+  "official_inventory": {
+    "platform": "Gamma handheld",
+    "lidar": "Livox Avia",
+    "imu": "Xsens MTi-30",
+    "published_size": "2.9 GB",
+    "published_duration_sec": 390,
+    "published_distance_m": 300,
+    "published_difficulty": "Medium",
+    "timestamped_pose_ground_truth_available": false,
+    "ground_truth_map_available": true,
+    "accuracy_evaluation_authorized": false,
+    "limitation": "Official documentation reports Gamma odometry drift during PALoc map alignment; no timestamped Gamma Stairs trajectory is released."
+  },
+  "official_bag": {
+    "file_name": "stairs_gamma.bag",
+    "drive_file_id": "1Hnyv8XRM4zIcaB5UpDvcqeMe46otJ7jr",
+    "size_bytes": 3071682740,
+    "sha256": "932a5490497634d8e0497c0013c973d804dc892d37d1c0cab661e20141be514d",
+    "duration_sec": 390.752805,
+    "start_timestamp_sec": 1705545214.769464,
+    "end_timestamp_sec": 1705545605.522269,
+    "total_message_count": 129992,
+    "topics": {
+      "/livox/lidar": {"type": "livox_ros_driver/CustomMsg", "count": 3907},
+      "/imu/data": {"type": "sensor_msgs/Imu", "count": 39071},
+      "/livox/imu": {"type": "sensor_msgs/Imu", "count": 79200},
+      "/left_camera/image/compressed": {"type": "sensor_msgs/CompressedImage", "count": 3907},
+      "/right_camera/image/compressed": {"type": "sensor_msgs/CompressedImage", "count": 3907}
+    }
+  },
+  "gamma_calibration": {
+    "official_file": "gamma_config.yaml",
+    "sha256": "19cda4d48f5b185d93293393846a387a2b093c67dc9ec3a646ed8f826b587dbe"
+  },
+  "deterministic_adapter": {
+    "version": "geode_gamma_deskew_barrier_v2",
+    "source_sha256": "d16d2659a8b12e45702e436d81aa86e011f30ae07a31fe6067a2296ba4da0766",
+    "configuration_sha256": "2b5802a4c3bea6999f247cddf98cb6f897de60abd8e1bf85bf3847981b9af7bc",
+    "event_sequence_sha256": "85a3682ecf3b612e451754021711fb92b15d715db37b5a25cebc50de35a5b9dc",
+    "point_semantics_sequence_sha256": "bb887bb081d800f3855fd22ccf235a633c29ce7795b4d87e6e34ea83ff389bdb",
+    "converted_bag_sha256": "566a597dab959d188875f85a4f1c962468c40eaef05d933b38eac8fba52b23b4",
+    "processable_scan_count": 3906,
+    "imu_count": 39071,
+    "excluded_terminal_uncovered_scan_count": 1
+  },
+  "runtime_configuration": {
+    "generation_manifest_sha256": "20ee041e9420015a23c82954e320f0fb7900e6d88ff300011b0d9d1347cdccc8",
+    "stage1_configuration_fingerprint": "VGICP|1|9.9999999999999998e-13|1.0000000000000001e-09|1e-08|0.5|1",
+    "local_only": true,
+    "incoming_k_to_g_factors": 0,
+    "dcreg_health_mode": "log_only"
+  },
+  "ground_truth_used_for_reference": false
+}

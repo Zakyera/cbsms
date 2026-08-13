@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "stage": "2C-D1",
+  "frozen_before_diagnostic_results": "2026-08-11",
+  "scientific_boundary": {
+    "primary_evaluator_unchanged": true,
+    "diagnostic_alternatives_cannot_replace_primary_automatically": true,
+    "ground_truth_cannot_enter_stage1_reference_logic": true,
+    "condition_to_error_calibration_prohibited": true,
+    "estimator_changes_prohibited": true
+  },
+  "datasets": [
+    "Inland_Waterways_Short_Gamma",
+    "Inland_Waterways_Medium_Gamma"
+  ],
+  "primary": {
+    "edge_definition": "Logmap(inverse(Z_GT_ij) * Z_G_ij)",
+    "endpoint_order": "i_then_j",
+    "gt_interpolation_maximum_bracket_sec": 0.05,
+    "gt_bracket_boundary_inclusive": true,
+    "stable_edge_policy": "last_publication_per_stable_edge",
+    "translation_units": "metres",
+    "rotation_units": "radians",
+    "displacement_ratio_epsilon_m": 1.0e-9,
+    "summary_percentiles": [10, 50, 90, 95, 100]
+  },
+  "edge_direction_diagnostics": {
+    "A_primary": "error(Z_GT, Z_G)",
+    "B_invert_glim": "error(Z_GT, inverse(Z_G))",
+    "C_invert_gt": "error(inverse(Z_GT), Z_G)",
+    "D_invert_both": "error(inverse(Z_GT), inverse(Z_G))",
+    "E_raw_group_translation": true,
+    "orders_of_magnitude_reduction_factor": 10.0,
+    "replacement_policy": "never_replace_without_official_convention_proof"
+  },
+  "manual_edge_selection": {
+    "count_per_group": 5,
+    "first": "earliest_end_timestamp_then_pose_indices",
+    "median_error": "smallest_absolute_distance_to_dataset_translation_error_median_then_pose_indices",
+    "p95_error": "smallest_absolute_distance_to_dataset_translation_error_p95_then_pose_indices",
+    "low_conditioning": "ascending_maximum_translation_condition_ratio_then_pose_indices",
+    "high_conditioning": "descending_maximum_translation_condition_ratio_then_pose_indices",
+    "selection_is_not_cherry_picked": true
+  },
+  "timing_diagnostic": {
+    "primary_time_offset_sec": 0.0,
+    "offset_min_sec": -1.0,
+    "offset_max_sec": 1.0,
+    "offset_step_sec": 0.01,
+    "common_grid_step_sec": 0.1,
+    "translation_signal": "consecutive_pose_translation_speed_norm",
+    "rotation_signal": "consecutive_pose_so3_log_rate_norm",
+    "correlation": "mean_centered_pearson",
+    "shift_convention": "compare_GLIM_at_t_with_GT_at_t_plus_offset",
+    "minimum_overlap_samples": 100,
+    "diagnostic_only": true,
+    "may_change_primary_offset": false
+  },
+  "full_trajectory_evaluation": {
+    "official_ape": "evo_ape tum estimate_converted_to_GT_body GT -va --t_max_diff 0.1 --t_offset 0",
+    "official_alignment": "SE3_Umeyama_no_scale",
+    "diagnostic_rpe": "evo_rpe tum GT estimate_converted_to_GT_body --align --t_max_diff 0.1 --t_offset 0",
+    "no_fitted_extrinsic": true,
+    "no_fitted_time_offset": true,
+    "local_matched_timestamp_crosscheck": true
+  },
+  "tunnel4_reference_screen": {
+    "sequence": "Tunneling_tunnel4_gamma",
+    "minimum_accepted_samples": 30,
+    "maximum_accepted_gap_sec": 0.5,
+    "minimum_accepted_span_sec": 2.9,
+    "minimum_acceptance_fraction": 0.5,
+    "frozen_stage1_gates_only": true,
+    "ground_truth_role": "position_only_not_used_for_reference",
+    "fallback_if_unqualified": "recommend_Stairs_Gamma_for_final_reviewed_screen"
+  }
+}

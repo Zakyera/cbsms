@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "created_date": "2026-08-11",
+  "scientific_scope": "passive same-Gamma reference screening and preregistered within-Inland absolute-conditioning association",
+  "upstream_provenance_manifest": "config/geode_stage2c_b_provenance.json",
+  "upstream_provenance_manifest_sha256": "2c3e40298f368c717c37a4c54e6964198056910e336809c417796b3aac743105",
+  "analysis_plan": {
+    "path": "config/geode_stage2c_c_analysis_plan.json",
+    "sha256": "92ad7e7f430a226515c0869b23a784820133b4e774794861b7ddfccfef5b6fca",
+    "frozen_before_inland_analysis": true
+  },
+  "candidate_policy": {
+    "maximum_additional_sequences": 2,
+    "first_candidate": "Offroad7_Gamma",
+    "preferred_second_candidate": "Stairs_Gamma",
+    "preferred_second_candidate_status": "public Google Drive per-file quota exhausted",
+    "fallback_second_candidate": "Tunneling_Tunnel1_Gamma",
+    "fallback_reason": "same Gamma sensor, unchanged configuration, irregular three-dimensional mine-tunnel walls",
+    "search_stopped_after_fallback": true
+  },
+  "source_bags": [
+    {
+      "sequence": "Offroad7_Gamma",
+      "official_source_url": "https://drive.google.com/drive/folders/1hEn3sBAvQhSdUFnGMZCCv-W0Ynj2rWBs",
+      "local_path": "src/datasets/GEODE/Offroad7_Gamma/Offroad7_gamma.bag",
+      "size_bytes": 1401156863,
+      "sha256": "0f0cd2cf142ee8b349d4a667bb05f4bbb63b3ceedf756c6c636b46b86af7b388",
+      "gt_used": false
+    },
+    {
+      "sequence": "Tunneling_Tunnel1_Gamma",
+      "official_source_url": "https://drive.google.com/uc?id=1YjAqI-HGDeiQCv6t7AaRNxItT_T97QQQ",
+      "drive_file_id": "1YjAqI-HGDeiQCv6t7AaRNxItT_T97QQQ",
+      "local_path": "src/datasets/GEODE/Tunneling_Tunnel1_Gamma/Tunneling_tunnel1_gamma.bag",
+      "size_bytes": 1820964443,
+      "sha256": "79f89b1c8653c65841fd00dcc0f1ed24799f9d0a839b34f107ec336cac5ebb50",
+      "gt_used": false,
+      "known_gt_limitation": "released local tunnel file is translation-only with zero quaternion fields"
+    }
+  ],
+  "deterministic_conversions": [
+    {
+      "sequence": "Offroad7_Gamma",
+      "event_count": 20251,
+      "event_sequence_sha256": "e30bbaa2adf835be3bbddc043c2bccec978a8b9557a162883d87da666e4f3f3e",
+      "point_semantics_sequence_sha256": "e858b58c9ee47f6aa8846a2965113faa3a1a3b422a44e002756edc37a5ec5fb7",
+      "output_bag_sha256": "be6384a089ef6b2fd9c99070c1af9b186800e689e8efdb9670ae6b388c50e895",
+      "independent_runs_byte_identical": true
+    },
+    {
+      "sequence": "Tunneling_Tunnel1_Gamma",
+      "event_count": 22969,
+      "event_sequence_sha256": "de9b6323ed4925134792487f98ac497201702681376547da5532506995149aa4",
+      "point_semantics_sequence_sha256": "43eb97545b3f31716712fe88b5f8381489cf455ab1febe67b44687f51f0ec632",
+      "output_bag_sha256": "846b0e5a29c5ddf730b39f9c72e072340fd5b216440dd00da20ab7cc18c39fa8",
+      "independent_runs_byte_identical": true
+    }
+  ],
+  "runtime_configuration": {
+    "generated_config_manifest_sha256": "20ee041e9420015a23c82954e320f0fb7900e6d88ff300011b0d9d1347cdccc8",
+    "stage1_mode": "log_only",
+    "incoming_k_to_g": false,
+    "active_health_policy": false,
+    "same_gamma_configuration_for_all_sequences": true
+  },
+  "ground_truth_use": {
+    "reference_screening": false,
+    "inland_offline_edge_evaluation_only": true,
+    "primary_interpolation_bracket_sec": 0.05,
+    "calibration_or_time_offset_fitted": false
+  },
+  "large_artifact_root": "stage2c_c",
+  "large_artifacts_intentionally_untracked": true
+}
