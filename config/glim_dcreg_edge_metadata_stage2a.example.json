@@ -1,0 +1,23 @@
+{
+  "odometry_estimation": {
+    "dcreg_health": {
+      "mode": "log_only"
+    },
+    "dcreg_edge_metadata": {
+      "enabled": false,
+      "topic": "/glim/cbs/dcreg_edge_health_metadata",
+      "pose_timestamp_tolerance_sec": 1.0e-6,
+      "minimum_valid_samples": 1,
+      "maximum_samples_per_edge": 64,
+      "lower_quantile": 0.10,
+      "minimum_samples_for_lower_quantile": 10,
+      "publish_unavailable": true,
+      "include_absolute_degeneracy": true,
+      "include_relative_health": true,
+      "include_support_summary": true,
+      "include_matching_summary": true,
+      "publication_queue_capacity": 256,
+      "overflow_policy": "drop_newest"
+    }
+  }
+}
