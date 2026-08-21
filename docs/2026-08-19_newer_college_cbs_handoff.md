@@ -8,6 +8,14 @@
 
 This document is the starting context for the next Codex chat. Read it before changing or running anything.
 
+> **2026-08-22 official Maths-Easy completion:** The complete full-sequence
+> CBS-off/on result pair, frozen estimator/CBS settings, full 6x6
+> sender-to-receiver covariance audit, Rerun hashes, and reuse rules are now
+> recorded in
+> [the official Maths-Easy results handoff](2026-08-22_newer_college_maths_easy_official_results.md).
+> This newer document supersedes the early dataset assumptions and incomplete
+> experiment status later in this handoff.
+
 > **2026-08-21 Rerun preset update:** The synchronized Newer College CBS-off
 > dashboard is now frozen for reuse across all nine sequences. Before creating
 > or presenting a Newer College recording, read

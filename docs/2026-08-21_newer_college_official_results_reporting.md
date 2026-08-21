@@ -47,6 +47,7 @@ Every official result slot contains:
 │   ├── trajectories_3d.{png,pdf}
 │   └── translation_ape.{png,pdf}
 ├── rerun/
+├── covariances/                 # required and populated for CBS on
 ├── configs/
 ├── logs/
 └── provenance/
@@ -81,6 +82,14 @@ At sequence level it records:
 - Rerun recording/blueprint paths and hashes;
 - exact estimator configurations and run provenance.
 
+Every `cbs_on` result additionally records every accepted sender-to-receiver
+factor covariance as a full 6×6 matrix in tangent order
+`[rot_x, rot_y, rot_z, trans_x, trans_y, trans_z]`. The package contains both
+the sender matrix and the covariance actually supplied to the receiver's
+Gaussian between factor, plus spectra, conditioning, full-matrix samples, and
+distribution summaries. Rolling ROS belief-window entries are not counted as
+factors unless a receiver acceptance/insertion row confirms their use.
+
 The paper metric is translation APE RMSE after one Umeyama/Kabsch SE(3)
 alignment per estimator, with scale fixed at one, in Oxford Base. No Sim(3),
 time-offset fitting, trajectory deformation, or estimator feedback is allowed.
@@ -100,6 +109,8 @@ The finalizer refuses `COMPLETE` unless it receives:
 - a canonical `.rrd` and `.rbl`, both passing `rerun rrd verify`;
 - at least one provenance file;
 - a CBS activity count: exactly zero for `cbs_off`, positive for `cbs_on`.
+- for `cbs_on`, a `--covariance-report-dir` whose audit status is `COMPLETE`
+  and whose G→K plus K→G accepted-factor count equals the CBS activity count.
 
 The collector admits a sequence to the paper table only when both its off and
 on packages are `COMPLETE`, both claim full-sequence coverage, and their Oxford
@@ -152,7 +163,28 @@ $PY src/cbsms/tools/newer_college_results.py finalize \
 ```
 
 For CBS on, use `--mode cbs_on`, the actual direction (`g2k`, `k2g`, or
-`bidirectional`), and the verified positive CBS insertion/activity count.
+`bidirectional`), the verified positive CBS insertion/activity count, and:
+
+```bash
+--covariance-report-dir <run-dir>/covariances
+```
+
+Generate that directory from the lossless belief bag and estimator log before
+finalization:
+
+```bash
+python3 src/cbsms/tools/cbs_inserted_factor_covariance_report.py \
+  --belief-bag <run-dir>/cbs_beliefs.bag \
+  --estimator-log <run-dir>/estimators.log \
+  --output-dir <run-dir>/covariances \
+  --expected-g2k <accepted-g2k-count> \
+  --expected-k2g <accepted-k2g-count>
+```
+
+Run the covariance reporter in the ROS 1 environment/container because it
+imports `rosbag`. Its default Newer College body transform and covariance
+scales are the frozen production values; pass explicit transform/scale options
+if an experiment intentionally changes them.
 
 After every finalized run, regenerate all aggregate outputs:
 

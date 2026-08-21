@@ -228,6 +228,7 @@ def initialize_slot(slot: Path, sequence: str, mode: str) -> None:
         "trajectories/aligned",
         "figures",
         "rerun",
+        "covariances",
         "configs",
         "logs",
         "provenance",
@@ -517,6 +518,25 @@ def write_result_report(result_dir: Path, result: dict[str, Any]) -> None:
             "",
             "![Translation APE](figures/translation_ape.png)",
             "",
+        ]
+    )
+    covariance = result.get("cbs_factor_covariances")
+    if covariance:
+        lines.extend(
+            [
+                "## CBS inserted-factor covariances",
+                "",
+                f"- Audit status: `{covariance['status']}`",
+                f"- G→K accepted factors: `{covariance['g2k_factor_count']}`",
+                f"- K→G accepted factors: `{covariance['k2g_factor_count']}`",
+                "- Full report: `covariances/REPORT.md`",
+                "- Every sent and receiver-inserted 6×6 matrix: "
+                "`covariances/accepted_factor_covariances.csv` and `.npz`",
+                "",
+            ]
+        )
+    lines.extend(
+        [
             "## Source",
             "",
             f"- Source run: `{result['source']['run_dir']}`",
@@ -571,6 +591,8 @@ def finalize_result(args: argparse.Namespace) -> None:
             raise SystemExit("COMPLETE requires at least one --provenance-file")
         if args.cbs_activity_count is None:
             raise SystemExit("COMPLETE requires --cbs-activity-count")
+        if mode == "cbs_on" and not args.covariance_report_dir:
+            raise SystemExit("COMPLETE cbs_on requires --covariance-report-dir")
     if mode == "cbs_off" and args.cbs_direction != "none":
         raise SystemExit("cbs_off requires --cbs-direction none")
     if mode == "cbs_on" and args.cbs_direction == "none":
@@ -579,6 +601,52 @@ def finalize_result(args: argparse.Namespace) -> None:
         raise SystemExit("cbs_off requires --cbs-activity-count 0")
     if mode == "cbs_on" and args.cbs_activity_count is not None and args.cbs_activity_count <= 0:
         raise SystemExit("cbs_on requires a positive --cbs-activity-count")
+
+    covariance_summary = None
+    if args.covariance_report_dir:
+        covariance_source = args.covariance_report_dir.resolve()
+        covariance_summary_path = covariance_source / "summary.json"
+        covariance_report_path = covariance_source / "REPORT.md"
+        covariance_csv_path = covariance_source / "accepted_factor_covariances.csv"
+        covariance_npz_path = covariance_source / "accepted_factor_covariances.npz"
+        missing_covariance = [
+            str(path)
+            for path in (
+                covariance_summary_path,
+                covariance_report_path,
+                covariance_csv_path,
+                covariance_npz_path,
+            )
+            if not path.is_file()
+        ]
+        if missing_covariance:
+            raise SystemExit(
+                "missing required CBS covariance artifacts:\n"
+                + "\n".join(missing_covariance)
+            )
+        covariance_summary = json.loads(
+            covariance_summary_path.read_text(encoding="utf-8")
+        )
+        if covariance_summary.get("status") != "COMPLETE":
+            raise SystemExit("CBS covariance report status is not COMPLETE")
+        directions = covariance_summary.get("directions", {})
+        try:
+            covariance_activity_count = sum(
+                int(directions[direction]["accepted_factor_count"])
+                for direction in ("G2K", "K2G")
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise SystemExit("invalid CBS covariance direction counts") from error
+        if (
+            args.cbs_activity_count is not None
+            and covariance_activity_count != args.cbs_activity_count
+        ):
+            raise SystemExit(
+                "CBS covariance factor count differs from --cbs-activity-count: "
+                f"{covariance_activity_count} versus {args.cbs_activity_count}"
+            )
+    elif mode == "cbs_off":
+        covariance_source = None
 
     initialize_slot(result_dir, sequence, mode)
     glim_row, _glim_source = select_glim_metric(required["GLIM metrics"])
@@ -674,6 +742,8 @@ def finalize_result(args: argparse.Namespace) -> None:
         copy_file(source.resolve(), result_dir / "provenance" / source.name)
     if args.source_report:
         copy_file(args.source_report.resolve(), result_dir / "provenance/source_report.md")
+    if args.covariance_report_dir:
+        copy_tree(args.covariance_report_dir.resolve(), result_dir / "covariances")
 
     rerun_artifacts = {}
     artifact_rows = []
@@ -694,6 +764,13 @@ def finalize_result(args: argparse.Namespace) -> None:
     source_paths.extend(("provenance", path.resolve()) for path in args.provenance_file or [])
     if args.source_report:
         source_paths.append(("source_report", args.source_report.resolve()))
+    if args.covariance_report_dir:
+        source_paths.extend(
+            (
+                ("cbs_covariance_report", args.covariance_report_dir.resolve() / "REPORT.md"),
+                ("cbs_covariance_summary", args.covariance_report_dir.resolve() / "summary.json"),
+            )
+        )
     for name, path in source_paths:
         if path.is_file():
             artifact_rows.append((name, artifact_record(path)))
@@ -759,6 +836,25 @@ def finalize_result(args: argparse.Namespace) -> None:
         "rerun": rerun_artifacts,
         "notes": args.notes or "",
     }
+    if covariance_summary:
+        result["cbs_factor_covariances"] = {
+            "status": covariance_summary["status"],
+            "matrix_order": covariance_summary["matrix_order"],
+            "g2k_factor_count": int(
+                covariance_summary["directions"]["G2K"]["accepted_factor_count"]
+            ),
+            "k2g_factor_count": int(
+                covariance_summary["directions"]["K2G"]["accepted_factor_count"]
+            ),
+            "maximum_logged_matrix_relative_error": float(
+                covariance_summary["validation"][
+                    "maximum_logged_matrix_relative_error"
+                ]
+            ),
+            "report": "covariances/REPORT.md",
+            "all_factor_matrices_csv": "covariances/accepted_factor_covariances.csv",
+            "all_factor_matrices_npz": "covariances/accepted_factor_covariances.npz",
+        }
     write_json(result_dir / "result.json", result)
     title = f"Newer College {sequence_label} — {mode.replace('_', ' ').upper()}"
     make_figures(
@@ -1046,6 +1142,7 @@ def build_parser() -> argparse.ArgumentParser:
     finalize.add_argument("--rrd", type=Path)
     finalize.add_argument("--rbl", type=Path)
     finalize.add_argument("--source-report", type=Path)
+    finalize.add_argument("--covariance-report-dir", type=Path)
     finalize.add_argument("--config-dir", type=Path, action="append")
     finalize.add_argument("--provenance-file", type=Path, action="append")
     finalize.add_argument("--notes")
