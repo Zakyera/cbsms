@@ -1,0 +1,15 @@
+{
+  "dataset": {
+    "collection": "collection3",
+    "name": "Oxford Newer College Multi-Camera Dataset",
+    "release": "2021-ouster-os0-128-alphasense",
+    "sequence": "maths-easy",
+    "sequence_label": "Maths-Easy"
+  },
+  "experiment": {
+    "mode": "cbs_off"
+  },
+  "schema_version": 1,
+  "status": "PENDING",
+  "updated_utc": "2026-08-21T12:06:12.225771+00:00"
+}

@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "frozen_before_analysis": "2026-08-14",
+  "scientific_scope": "reference-free GLIM LiDAR registration observability characterization",
+  "authoritative_quantities": {
+    "rotation": "maximum rotational Schur condition ratio kappa_R",
+    "translation": "maximum translational Schur condition ratio kappa_t",
+    "ordering": "GTSAM Pose3 local right tangent [rx, ry, rz, tx, ty, tz]"
+  },
+  "thresholds": [5.0, 10.0, 20.0],
+  "production_threshold": 10.0,
+  "signed_plot_margin": "log(tau / kappa)",
+  "synthetic_seed": 314159,
+  "rank_threshold": {
+    "absolute": 1e-12,
+    "relative_to_largest_eigenvalue": 1e-8
+  },
+  "conditioning_bins": [
+    {"label": "below_5", "lower_inclusive": 1.0, "upper_exclusive": 5.0},
+    {"label": "5_to_10", "lower_inclusive": 5.0, "upper_exclusive": 10.0},
+    {"label": "10_to_20", "lower_inclusive": 10.0, "upper_exclusive": 20.0},
+    {"label": "20_to_100", "lower_inclusive": 20.0, "upper_exclusive": 100.0},
+    {"label": "100_or_more", "lower_inclusive": 100.0, "upper_exclusive": null}
+  ],
+  "support_strata": [
+    {"label": "low", "lower_inclusive": 0.0, "upper_exclusive": 0.25},
+    {"label": "moderate", "lower_inclusive": 0.25, "upper_exclusive": 0.50},
+    {"label": "high", "lower_inclusive": 0.50, "upper_exclusive": null}
+  ],
+  "descriptive_error_boundaries": {
+    "rotation_rad": 0.02,
+    "translation_m": 0.50,
+    "purpose": "fixed descriptive taxonomy only; not a detector threshold or accuracy classifier"
+  },
+  "wrong_basin_case_rule": {
+    "translation_error_m_min": 0.50,
+    "translation_vector_cosine_max": -0.80,
+    "glim_to_gt_displacement_ratio_min": 0.80,
+    "glim_to_gt_displacement_ratio_max": 1.25,
+    "inlier_fraction_min": 0.50,
+    "selection": "earliest eligible edge in each of six equal-duration time bins"
+  },
+  "temporal_runs": {
+    "contiguous_key_step": 1,
+    "invalid_or_missing_breaks_run": true
+  },
+  "bootstrap": {
+    "replications": 2000,
+    "seed": 271828,
+    "block_duration_sec": 10.0,
+    "unit": "unique stable edge"
+  },
+  "reporting": {
+    "sequences_are_never_pooled_for_primary_correlation": true,
+    "rotation_and_translation_are_never_combined": true,
+    "relative_gamma_health_is_unavailable": true,
+    "no_ground_truth_used_to_construct_any_detector": true
+  }
+}

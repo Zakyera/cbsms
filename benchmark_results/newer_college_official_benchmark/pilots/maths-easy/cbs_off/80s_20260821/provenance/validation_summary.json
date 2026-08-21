@@ -1,0 +1,54 @@
+{
+  "status": "COMPLETE",
+  "sequence": "Newer College 2021 Maths-Easy",
+  "recording_id": "newer_college_maths_easy_edited_glim_kimera_cbs_off_80s_20260821",
+  "sensor_window_sec": 80.0,
+  "bag_rate": 0.75,
+  "cbs": {
+    "glim_bridge": false,
+    "glim_health_aware": false,
+    "kimera_belief_bridge": false,
+    "kimera_backend": false,
+    "kimera_health_aware": false,
+    "activity_log_matches": 0
+  },
+  "glim": {
+    "odometry_poses": 792,
+    "ros_odometry_rows": 793,
+    "evaluated_duration_sec": 79.09608340263367,
+    "translation_ape_rmse_m": 0.061715678418143675,
+    "height_frame": "Oxford Base",
+    "factor_graph_snapshots": 793,
+    "original_code_matched_prefix_rmse_m": 0.06143348959244685,
+    "rmse_delta_edited_minus_original_m": 0.000282188825696825,
+    "direct_trajectory_delta_rmse_m": 0.029324441047593523
+  },
+  "kimera": {
+    "poses": 343,
+    "evaluated_duration_sec": 79.79826235771179,
+    "translation_ape_rmse_m": 1.8602511318958008,
+    "aligned_height_rmse_m": 0.04952898819514281,
+    "factor_graph_snapshots": 69,
+    "nr_states": 50,
+    "numOptimize": 1,
+    "original_code_matched_control_rmse_m": 1.7629483243130026,
+    "rmse_delta_edited_minus_original_m": 0.0973028075827982,
+    "direct_trajectory_delta_rmse_m": 0.6309096427254172
+  },
+  "rerun": {
+    "rrd_verified": true,
+    "rrd_entity_paths": 412,
+    "rrd_rows": 59672,
+    "glim_factor_graph_present": true,
+    "kimera_factor_graph_present": true,
+    "aligned_glim_trajectory_present": true,
+    "aligned_kimera_trajectory_present": true,
+    "ground_truth_trajectory_present": true,
+    "per_pose_error_series_present": true,
+    "cam1_video_present": true,
+    "cam4_video_present": true,
+    "lidar_playback_present": true,
+    "verified_lidar_frames": 81,
+    "rrd_sha256": "e3129c4197b6f5d5fe8b6869fba5bd27578e1e99bffa2d0f139125066c469170"
+  }
+}

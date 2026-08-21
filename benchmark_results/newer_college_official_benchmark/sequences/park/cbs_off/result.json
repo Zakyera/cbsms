@@ -1,0 +1,15 @@
+{
+  "dataset": {
+    "collection": "collection2",
+    "name": "Oxford Newer College Multi-Camera Dataset",
+    "release": "2021-ouster-os0-128-alphasense",
+    "sequence": "park",
+    "sequence_label": "Park"
+  },
+  "experiment": {
+    "mode": "cbs_off"
+  },
+  "schema_version": 1,
+  "status": "PENDING",
+  "updated_utc": "2026-08-21T12:06:12.225233+00:00"
+}

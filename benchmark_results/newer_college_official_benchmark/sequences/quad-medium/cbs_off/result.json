@@ -1,0 +1,15 @@
+{
+  "dataset": {
+    "collection": "collection1",
+    "name": "Oxford Newer College Multi-Camera Dataset",
+    "release": "2021-ouster-os0-128-alphasense",
+    "sequence": "quad-medium",
+    "sequence_label": "Quad-Medium"
+  },
+  "experiment": {
+    "mode": "cbs_off"
+  },
+  "schema_version": 1,
+  "status": "PENDING",
+  "updated_utc": "2026-08-21T12:06:12.222938+00:00"
+}

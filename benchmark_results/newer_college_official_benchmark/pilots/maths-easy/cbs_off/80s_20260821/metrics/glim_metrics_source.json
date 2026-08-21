@@ -1,0 +1,211 @@
+{
+  "fixed_body_transform": {
+    "T_base_os_imu_quaternion_xyzw": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "T_base_os_imu_translation_m": [
+      -0.013000000000000001,
+      0.012,
+      0.106
+    ],
+    "application": "T_world_base = T_world_os_imu * inverse(T_base_os_imu)",
+    "source": "os_imu_lidar_transforms.yaml: os_imu_to_os_sensor + os_sensor_to_base"
+  },
+  "frame_chain_crosscheck": {
+    "odom": {
+      "max_m": 1.428340887988644e-06,
+      "rmse_m": 6.981554914835712e-07
+    },
+    "traj": {
+      "max_m": 1.3623897670583097e-06,
+      "rmse_m": 6.909956077069948e-07
+    }
+  },
+  "glim_source_frame": "Ouster IMU (OS_I / os_imu)",
+  "ground_truth_frame": "Oxford Multi-Camera Base",
+  "metrics": [
+    {
+      "aligned_endpoint_error_m": 0.07660042818882105,
+      "alignment": "Umeyama/Kabsch SE(3), scale fixed at 1",
+      "alignment_rotation": [
+        [
+          -0.4211144560369183,
+          -0.9070063756659162,
+          0.0014315788867081316
+        ],
+        [
+          0.9069717781859475,
+          -0.42108333463878855,
+          0.00954038068937358
+        ],
+        [
+          -0.00805037210012828,
+          0.005315993872881815,
+          0.9999534647763328
+        ]
+      ],
+      "alignment_translation_m": [
+        -23.711938943837268,
+        -31.272916302892423,
+        1.1610399894721597
+      ],
+      "association_delta_max_sec": 0.0,
+      "association_delta_mean_sec": 0.0,
+      "end_stamp_sec": 1617799852.735352,
+      "estimate_path_length_m": 91.14240077241182,
+      "estimate_samples": 792,
+      "evaluated_duration_sec": 79.09608340263367,
+      "maximum_association_difference_sec": 0.01,
+      "maximum_error_elapsed_sec": 3.0984604358673096,
+      "maximum_error_stamp_sec": 1617799776.737729,
+      "name": "glim_odom_base",
+      "reference_path_length_m": 97.72221097680735,
+      "samples": 792,
+      "start_stamp_sec": 1617799773.6392686,
+      "translation_ape_max_m": 0.405687913397804,
+      "translation_ape_mean_m": 0.05329910946575488,
+      "translation_ape_median_m": 0.0490237307345148,
+      "translation_ape_min_m": 0.0068016891870654505,
+      "translation_ape_rmse_m": 0.061715678418143675,
+      "translation_ape_std_m": 0.031113178763495102
+    },
+    {
+      "aligned_endpoint_error_m": 0.08171241763842665,
+      "alignment": "Umeyama/Kabsch SE(3), scale fixed at 1",
+      "alignment_rotation": [
+        [
+          -0.4211801913762664,
+          -0.9069752501648434,
+          0.001772563305489385
+        ],
+        [
+          0.9069424961301231,
+          -0.42114632965013965,
+          0.009543465590544566
+        ],
+        [
+          -0.007909178561244356,
+          0.005627131652647574,
+          0.9999528890322035
+        ]
+      ],
+      "alignment_translation_m": [
+        -23.727820733957294,
+        -31.278378477911787,
+        1.1592462826829586
+      ],
+      "association_delta_max_sec": 0.0,
+      "association_delta_mean_sec": 0.0,
+      "end_stamp_sec": 1617799852.735352,
+      "estimate_path_length_m": 91.1128700362845,
+      "estimate_samples": 792,
+      "evaluated_duration_sec": 79.09608340263367,
+      "maximum_association_difference_sec": 0.01,
+      "maximum_error_elapsed_sec": 3.0984604358673096,
+      "maximum_error_stamp_sec": 1617799776.737729,
+      "name": "glim_traj_base",
+      "reference_path_length_m": 97.72221097680735,
+      "samples": 792,
+      "start_stamp_sec": 1617799773.6392686,
+      "translation_ape_max_m": 0.4003121082100312,
+      "translation_ape_mean_m": 0.05355814808994693,
+      "translation_ape_median_m": 0.04954877085029623,
+      "translation_ape_min_m": 0.002901916786775203,
+      "translation_ape_rmse_m": 0.061837558699775655,
+      "translation_ape_std_m": 0.03090968196412758
+    },
+    {
+      "aligned_endpoint_error_m": 0.09666386194691105,
+      "alignment": "Umeyama/Kabsch SE(3), scale fixed at 1",
+      "alignment_rotation": [
+        [
+          -0.42164400800943863,
+          -0.9067602792295412,
+          0.0014582596822699991
+        ],
+        [
+          0.9067257791789184,
+          -0.42161260993739785,
+          0.009548220470796205
+        ],
+        [
+          -0.008043126389636055,
+          0.005348191595315752,
+          0.9999533513942239
+        ]
+      ],
+      "alignment_translation_m": [
+        -23.717198578642623,
+        -31.265350090828466,
+        1.05497353399388
+      ],
+      "association_delta_max_sec": 0.0,
+      "association_delta_mean_sec": 0.0,
+      "end_stamp_sec": 1617799852.735352,
+      "estimate_path_length_m": 91.0967310448367,
+      "estimate_samples": 792,
+      "evaluated_duration_sec": 79.09608340263367,
+      "maximum_association_difference_sec": 0.01,
+      "maximum_error_elapsed_sec": 3.0984604358673096,
+      "maximum_error_stamp_sec": 1617799776.737729,
+      "name": "glim_odom_os_imu_uncorrected",
+      "reference_path_length_m": 97.72221097680735,
+      "samples": 792,
+      "start_stamp_sec": 1617799773.6392686,
+      "translation_ape_max_m": 0.39340064981857187,
+      "translation_ape_mean_m": 0.05581781660314499,
+      "translation_ape_median_m": 0.051522445647079224,
+      "translation_ape_min_m": 0.0026701904980988996,
+      "translation_ape_rmse_m": 0.06399212195727652,
+      "translation_ape_std_m": 0.03129477627740169
+    },
+    {
+      "aligned_endpoint_error_m": 0.10179182751070837,
+      "alignment": "Umeyama/Kabsch SE(3), scale fixed at 1",
+      "alignment_rotation": [
+        [
+          -0.4217097969567785,
+          -0.9067290718793307,
+          0.0017992663837345258
+        ],
+        [
+          0.9066964242091305,
+          -0.42167565921138594,
+          0.009551583901046396
+        ],
+        [
+          -0.007901991967115204,
+          0.005659384903857714,
+          0.999952763827103
+        ]
+      ],
+      "alignment_translation_m": [
+        -23.733086110067465,
+        -31.27081928846548,
+        1.0531798485761688
+      ],
+      "association_delta_max_sec": 0.0,
+      "association_delta_mean_sec": 0.0,
+      "end_stamp_sec": 1617799852.735352,
+      "estimate_path_length_m": 91.06748635160726,
+      "estimate_samples": 792,
+      "evaluated_duration_sec": 79.09608340263367,
+      "maximum_association_difference_sec": 0.01,
+      "maximum_error_elapsed_sec": 3.0984604358673096,
+      "maximum_error_stamp_sec": 1617799776.737729,
+      "name": "glim_traj_os_imu_uncorrected",
+      "reference_path_length_m": 97.72221097680735,
+      "samples": 792,
+      "start_stamp_sec": 1617799773.6392686,
+      "translation_ape_max_m": 0.38881384965704885,
+      "translation_ape_mean_m": 0.057858751082736117,
+      "translation_ape_median_m": 0.05385287332935418,
+      "translation_ape_min_m": 0.0014874860864657335,
+      "translation_ape_rmse_m": 0.06619727092016883,
+      "translation_ape_std_m": 0.03216276730047047
+    }
+  ]
+}

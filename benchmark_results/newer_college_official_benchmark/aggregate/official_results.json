@@ -1,0 +1,280 @@
+{
+  "admitted_sequences": [],
+  "cbs_on_direction_consistent": true,
+  "complete_cbs_on_directions": [],
+  "full_matrix_complete": false,
+  "generated_utc": "2026-08-21T12:11:05.038664+00:00",
+  "results": {
+    "cloister/cbs_off": {
+      "dataset": {
+        "collection": "collection2",
+        "name": "Oxford Newer College Multi-Camera Dataset",
+        "release": "2021-ouster-os0-128-alphasense",
+        "sequence": "cloister",
+        "sequence_label": "Cloister"
+      },
+      "experiment": {
+        "mode": "cbs_off"
+      },
+      "schema_version": 1,
+      "status": "PENDING",
+      "updated_utc": "2026-08-21T12:06:12.224672+00:00"
+    },
+    "cloister/cbs_on": {
+      "dataset": {
+        "collection": "collection2",
+        "name": "Oxford Newer College Multi-Camera Dataset",
+        "release": "2021-ouster-os0-128-alphasense",
+        "sequence": "cloister",
+        "sequence_label": "Cloister"
+      },
+      "experiment": {
+        "mode": "cbs_on"
+      },
+      "schema_version": 1,
+      "status": "PENDING",
+      "updated_utc": "2026-08-21T12:06:12.224965+00:00"
+    },
+    "maths-easy/cbs_off": {
+      "dataset": {
+        "collection": "collection3",
+        "name": "Oxford Newer College Multi-Camera Dataset",
+        "release": "2021-ouster-os0-128-alphasense",
+        "sequence": "maths-easy",
+        "sequence_label": "Maths-Easy"
+      },
+      "experiment": {
+        "mode": "cbs_off"
+      },
+      "schema_version": 1,
+      "status": "PENDING",
+      "updated_utc": "2026-08-21T12:06:12.225771+00:00"
+    },
+    "maths-easy/cbs_on": {
+      "dataset": {
+        "collection": "collection3",
+        "name": "Oxford Newer College Multi-Camera Dataset",
+        "release": "2021-ouster-os0-128-alphasense",
+        "sequence": "maths-easy",
+        "sequence_label": "Maths-Easy"
+      },
+      "experiment": {
+        "mode": "cbs_on"
+      },
+      "schema_version": 1,
+      "status": "PENDING",
+      "updated_utc": "2026-08-21T12:06:12.226006+00:00"
+    },
+    "maths-hard/cbs_off": {
+      "dataset": {
+        "collection": "collection3",
+        "name": "Oxford Newer College Multi-Camera Dataset",
+        "release": "2021-ouster-os0-128-alphasense",
+        "sequence": "maths-hard",
+        "sequence_label": "Maths-Hard"
+      },
+      "experiment": {
+        "mode": "cbs_off"
+      },
+      "schema_version": 1,
+      "status": "PENDING",
+      "updated_utc": "2026-08-21T12:06:12.226710+00:00"
+    },
+    "maths-hard/cbs_on": {
+      "dataset": {
+        "collection": "collection3",
+        "name": "Oxford Newer College Multi-Camera Dataset",
+        "release": "2021-ouster-os0-128-alphasense",
+        "sequence": "maths-hard",
+        "sequence_label": "Maths-Hard"
+      },
+      "experiment": {
+        "mode": "cbs_on"
+      },
+      "schema_version": 1,
+      "status": "PENDING",
+      "updated_utc": "2026-08-21T12:06:12.226932+00:00"
+    },
+    "maths-medium/cbs_off": {
+      "dataset": {
+        "collection": "collection3",
+        "name": "Oxford Newer College Multi-Camera Dataset",
+        "release": "2021-ouster-os0-128-alphasense",
+        "sequence": "maths-medium",
+        "sequence_label": "Maths-Medium"
+      },
+      "experiment": {
+        "mode": "cbs_off"
+      },
+      "schema_version": 1,
+      "status": "PENDING",
+      "updated_utc": "2026-08-21T12:06:12.226241+00:00"
+    },
+    "maths-medium/cbs_on": {
+      "dataset": {
+        "collection": "collection3",
+        "name": "Oxford Newer College Multi-Camera Dataset",
+        "release": "2021-ouster-os0-128-alphasense",
+        "sequence": "maths-medium",
+        "sequence_label": "Maths-Medium"
+      },
+      "experiment": {
+        "mode": "cbs_on"
+      },
+      "schema_version": 1,
+      "status": "PENDING",
+      "updated_utc": "2026-08-21T12:06:12.226468+00:00"
+    },
+    "park/cbs_off": {
+      "dataset": {
+        "collection": "collection2",
+        "name": "Oxford Newer College Multi-Camera Dataset",
+        "release": "2021-ouster-os0-128-alphasense",
+        "sequence": "park",
+        "sequence_label": "Park"
+      },
+      "experiment": {
+        "mode": "cbs_off"
+      },
+      "schema_version": 1,
+      "status": "PENDING",
+      "updated_utc": "2026-08-21T12:06:12.225233+00:00"
+    },
+    "park/cbs_on": {
+      "dataset": {
+        "collection": "collection2",
+        "name": "Oxford Newer College Multi-Camera Dataset",
+        "release": "2021-ouster-os0-128-alphasense",
+        "sequence": "park",
+        "sequence_label": "Park"
+      },
+      "experiment": {
+        "mode": "cbs_on"
+      },
+      "schema_version": 1,
+      "status": "PENDING",
+      "updated_utc": "2026-08-21T12:06:12.225495+00:00"
+    },
+    "quad-easy/cbs_off": {
+      "dataset": {
+        "collection": "collection1",
+        "name": "Oxford Newer College Multi-Camera Dataset",
+        "release": "2021-ouster-os0-128-alphasense",
+        "sequence": "quad-easy",
+        "sequence_label": "Quad-Easy"
+      },
+      "experiment": {
+        "mode": "cbs_off"
+      },
+      "schema_version": 1,
+      "status": "PENDING",
+      "updated_utc": "2026-08-21T12:06:12.222196+00:00"
+    },
+    "quad-easy/cbs_on": {
+      "dataset": {
+        "collection": "collection1",
+        "name": "Oxford Newer College Multi-Camera Dataset",
+        "release": "2021-ouster-os0-128-alphasense",
+        "sequence": "quad-easy",
+        "sequence_label": "Quad-Easy"
+      },
+      "experiment": {
+        "mode": "cbs_on"
+      },
+      "schema_version": 1,
+      "status": "PENDING",
+      "updated_utc": "2026-08-21T12:06:12.222619+00:00"
+    },
+    "quad-hard/cbs_off": {
+      "dataset": {
+        "collection": "collection1",
+        "name": "Oxford Newer College Multi-Camera Dataset",
+        "release": "2021-ouster-os0-128-alphasense",
+        "sequence": "quad-hard",
+        "sequence_label": "Quad-Hard"
+      },
+      "experiment": {
+        "mode": "cbs_off"
+      },
+      "schema_version": 1,
+      "status": "PENDING",
+      "updated_utc": "2026-08-21T12:06:12.223514+00:00"
+    },
+    "quad-hard/cbs_on": {
+      "dataset": {
+        "collection": "collection1",
+        "name": "Oxford Newer College Multi-Camera Dataset",
+        "release": "2021-ouster-os0-128-alphasense",
+        "sequence": "quad-hard",
+        "sequence_label": "Quad-Hard"
+      },
+      "experiment": {
+        "mode": "cbs_on"
+      },
+      "schema_version": 1,
+      "status": "PENDING",
+      "updated_utc": "2026-08-21T12:06:12.223840+00:00"
+    },
+    "quad-medium/cbs_off": {
+      "dataset": {
+        "collection": "collection1",
+        "name": "Oxford Newer College Multi-Camera Dataset",
+        "release": "2021-ouster-os0-128-alphasense",
+        "sequence": "quad-medium",
+        "sequence_label": "Quad-Medium"
+      },
+      "experiment": {
+        "mode": "cbs_off"
+      },
+      "schema_version": 1,
+      "status": "PENDING",
+      "updated_utc": "2026-08-21T12:06:12.222938+00:00"
+    },
+    "quad-medium/cbs_on": {
+      "dataset": {
+        "collection": "collection1",
+        "name": "Oxford Newer College Multi-Camera Dataset",
+        "release": "2021-ouster-os0-128-alphasense",
+        "sequence": "quad-medium",
+        "sequence_label": "Quad-Medium"
+      },
+      "experiment": {
+        "mode": "cbs_on"
+      },
+      "schema_version": 1,
+      "status": "PENDING",
+      "updated_utc": "2026-08-21T12:06:12.223213+00:00"
+    },
+    "stairs/cbs_off": {
+      "dataset": {
+        "collection": "collection1",
+        "name": "Oxford Newer College Multi-Camera Dataset",
+        "release": "2021-ouster-os0-128-alphasense",
+        "sequence": "stairs",
+        "sequence_label": "Stairs"
+      },
+      "experiment": {
+        "mode": "cbs_off"
+      },
+      "schema_version": 1,
+      "status": "PENDING",
+      "updated_utc": "2026-08-21T12:06:12.224121+00:00"
+    },
+    "stairs/cbs_on": {
+      "dataset": {
+        "collection": "collection1",
+        "name": "Oxford Newer College Multi-Camera Dataset",
+        "release": "2021-ouster-os0-128-alphasense",
+        "sequence": "stairs",
+        "sequence_label": "Stairs"
+      },
+      "experiment": {
+        "mode": "cbs_on"
+      },
+      "schema_version": 1,
+      "status": "PENDING",
+      "updated_utc": "2026-08-21T12:06:12.224392+00:00"
+    }
+  },
+  "schema_version": 1
+}

@@ -1,0 +1,141 @@
+{
+  "coverage": {
+    "definition": "common union of estimator output intervals",
+    "distance_source": "Oxford GT",
+    "distance_travelled_m": 98.06842826520104,
+    "end_stamp_sec": 1617799852.868783,
+    "estimator_union_end_stamp_sec": 1617799852.868783,
+    "estimator_union_start_stamp_sec": 1617799773.0705206,
+    "full_sequence": false,
+    "start_stamp_sec": 1617799773.0705206,
+    "time_travelled_sec": 79.79826235771179
+  },
+  "dataset": {
+    "collection": "collection3",
+    "name": "Oxford Newer College Multi-Camera Dataset",
+    "release": "2021-ouster-os0-128-alphasense",
+    "sequence": "maths-easy",
+    "sequence_label": "Maths-Easy"
+  },
+  "estimators": {
+    "glim": {
+      "aligned_endpoint_error_m": 0.07660042818882105,
+      "alignment": "Umeyama/Kabsch SE(3), scale fixed at 1",
+      "alignment_rotation": [
+        [
+          -0.4211144560369183,
+          -0.9070063756659162,
+          0.0014315788867081316
+        ],
+        [
+          0.9069717781859475,
+          -0.42108333463878855,
+          0.00954038068937358
+        ],
+        [
+          -0.00805037210012828,
+          0.005315993872881815,
+          0.9999534647763328
+        ]
+      ],
+      "alignment_translation_m": [
+        -23.711938943837268,
+        -31.272916302892423,
+        1.1610399894721597
+      ],
+      "end_stamp_sec": 1617799852.735352,
+      "estimate_distance_m": 91.14240077241182,
+      "evaluated_duration_sec": 79.09608340263367,
+      "independent_rmse_crosscheck_m": 0.061715678418776385,
+      "maximum_association_difference_sec": 0.01,
+      "poses": 792,
+      "reference_distance_m": 97.72221097680735,
+      "start_stamp_sec": 1617799773.6392686,
+      "translation_ape_max_m": 0.405687913397804,
+      "translation_ape_mean_m": 0.05329910946575488,
+      "translation_ape_median_m": 0.0490237307345148,
+      "translation_ape_min_m": 0.0068016891870654505,
+      "translation_ape_rmse_m": 0.061715678418143675,
+      "translation_ape_std_m": 0.031113178763495102
+    },
+    "kimera": {
+      "aligned_height_rmse_m": 0.04952898819514281,
+      "alignment": "Umeyama/Kabsch SE(3), scale fixed at 1",
+      "alignment_rotation": [
+        [
+          -0.19746860296301172,
+          0.9785584175846641,
+          0.058562566696098654
+        ],
+        [
+          -0.9789620320971804,
+          -0.1937142567795203,
+          -0.06409466773856913
+        ],
+        [
+          -0.05137597255523317,
+          -0.06998721379335301,
+          0.9962240206647537
+        ]
+      ],
+      "alignment_translation_m": [
+        -24.421335008286537,
+        -32.02953232042395,
+        0.9108283075562729
+      ],
+      "end_stamp_sec": 1617799852.868783,
+      "estimate_distance_m": 83.52024200416948,
+      "evaluated_duration_sec": 79.79826235771179,
+      "independent_rmse_crosscheck_m": 1.8602511318932442,
+      "maximum_association_difference_sec": 0.001,
+      "poses": 343,
+      "reference_distance_m": 91.80813107489122,
+      "start_stamp_sec": 1617799773.0705206,
+      "translation_ape_max_m": 3.433527207924479,
+      "translation_ape_mean_m": 1.7663701342006781,
+      "translation_ape_median_m": 1.6476202587527136,
+      "translation_ape_min_m": 0.9270761464409857,
+      "translation_ape_rmse_m": 1.8602511318958008,
+      "translation_ape_std_m": 0.583498776968288
+    }
+  },
+  "evaluation_protocol": {
+    "alignment": "Umeyama/Kabsch SE(3), scale fixed at 1",
+    "frame": "Oxford Multi-Camera Base",
+    "metric": "translation APE RMSE [m]",
+    "sim3_scale_correction": false,
+    "time_offset_fitting": false,
+    "trajectory_deformation": false
+  },
+  "experiment": {
+    "cbs_activity_count": 0,
+    "cbs_direction": "none",
+    "mode": "cbs_off",
+    "recording_id": "newer_college_maths_easy_edited_glim_kimera_cbs_off_80s_20260821",
+    "requested_duration_sec": 80.0
+  },
+  "notes": "Validated workflow seed only; 80-second prefix is not an official full-sequence paper result.",
+  "rerun": {
+    "rbl": {
+      "path": "/home/yeranis/repos/V4RL/cbs_gtsam4.3/runs/newer_college_maths_easy_edited_cbs_off_80s_20260821/recovered_blueprints/newer_college_maths_easy_80s_canonical_v7.rbl",
+      "rerun_verified": true,
+      "sha256": "90afae9fc8708b13abbf47de4836ffc618090384e3302b86aeba93447480fde2",
+      "size_bytes": 243558,
+      "verify_output": "1 file verified without error."
+    },
+    "rrd": {
+      "path": "/home/yeranis/repos/V4RL/cbs_gtsam4.3/runs/newer_college_maths_easy_edited_cbs_off_80s_20260821/rerun_capture/newer_college_maths_easy_80s_canonical_v7.rrd",
+      "rerun_verified": true,
+      "sha256": "42e3bad60bdbf69625c0d308936d3a80cbcfbb99cd494d040becd408ed16059d",
+      "size_bytes": 134524456,
+      "verify_output": "1 file verified without error."
+    }
+  },
+  "schema_version": 1,
+  "source": {
+    "evaluation_dir": "/home/yeranis/repos/V4RL/cbs_gtsam4.3/runs/newer_college_maths_easy_edited_cbs_off_80s_20260821/combined_glim_kimera_cbs_off_80s/evaluation",
+    "run_dir": "/home/yeranis/repos/V4RL/cbs_gtsam4.3/runs/newer_college_maths_easy_edited_cbs_off_80s_20260821"
+  },
+  "status": "PILOT",
+  "updated_utc": "2026-08-21T12:11:04.752156+00:00"
+}

@@ -1,5 +1,9 @@
 # Rerun Commands
 
+For Newer College GLIM + Kimera CBS-off experiments, use the dedicated
+[canonical Newer College CBS-off Rerun preset](2026-08-21_newer_college_cbs_off_rerun_preset.md).
+It supersedes the generic S3E layout below for that dataset family.
+
 Use this flow to inspect the S3E LiORF/Kimera CBS run live in the Rerun
 viewer. Start the viewer first, then start the experiment.
 
@@ -55,4 +59,3 @@ parsed/cbs_odom_factor_covariance.csv
 parsed/odom_factor_covariance_summary.csv
 parsed/odom_factor_covariance_samples.csv
 ```
-

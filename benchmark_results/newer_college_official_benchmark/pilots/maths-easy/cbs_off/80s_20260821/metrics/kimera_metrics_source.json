@@ -1,0 +1,64 @@
+{
+  "aligned_height_error": {
+    "max_abs_m": 0.1989561383627314,
+    "mean_m": -4.4214712875742384e-16,
+    "rmse_m": 0.04952898819514281
+  },
+  "alignment_rotation": [
+    [
+      -0.19746860296301172,
+      0.9785584175846641,
+      0.058562566696098654
+    ],
+    [
+      -0.9789620320971804,
+      -0.1937142567795203,
+      -0.06409466773856913
+    ],
+    [
+      -0.05137597255523317,
+      -0.06998721379335301,
+      0.9962240206647537
+    ]
+  ],
+  "alignment_translation_m": [
+    -24.421335008286537,
+    -32.02953232042395,
+    0.9108283075562729
+  ],
+  "end_timestamp": 1617799852.868783,
+  "estimated_duration_sec": 79.79826235771179,
+  "estimated_path_length_m": 83.52024200416948,
+  "poses": 343,
+  "protocol": {
+    "alignment": "Umeyama/Kabsch SE(3), scale fixed at 1",
+    "body_transform": {
+      "name": "T_as_imu_base = inverse(T_base_as_imu)",
+      "quaternion_xyzw": [
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "source": "Oxford os_imu_lidar_transforms.yaml",
+      "translation_m": [
+        -0.038,
+        -0.008,
+        0.065
+      ]
+    },
+    "estimate_input_frame": "Alphasense IMU",
+    "evaluation_frame": "Oxford Base",
+    "timestamp_offset_sec": 0.0
+  },
+  "reference_path_length_m": 91.80813107489122,
+  "start_timestamp": 1617799773.0705206,
+  "translation_ape": {
+    "max_m": 3.433527207924479,
+    "mean_m": 1.7663701342006781,
+    "median_m": 1.6476202587527136,
+    "min_m": 0.9270761464409857,
+    "rmse_m": 1.8602511318958008,
+    "std_m": 0.583498776968288
+  }
+}

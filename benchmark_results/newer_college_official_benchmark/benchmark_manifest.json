@@ -1,0 +1,28 @@
+{
+  "created_utc": "2026-08-21T12:06:12.221757+00:00",
+  "dataset": "Oxford Newer College Multi-Camera Dataset",
+  "evaluation": {
+    "alignment": "Umeyama/Kabsch SE(3), scale fixed at 1",
+    "frame": "Oxford Multi-Camera Base",
+    "metric": "translation APE RMSE [m]",
+    "sim3_scale_correction": false,
+    "time_offset_fitting": false
+  },
+  "modes": [
+    "cbs_off",
+    "cbs_on"
+  ],
+  "release": "2021-ouster-os0-128-alphasense",
+  "schema_version": 1,
+  "sequences": [
+    "quad-easy",
+    "quad-medium",
+    "quad-hard",
+    "stairs",
+    "cloister",
+    "park",
+    "maths-easy",
+    "maths-medium",
+    "maths-hard"
+  ]
+}

@@ -75,7 +75,14 @@ def main():
     parser.add_argument("--run-root", type=Path,
                         default=ROOT / "stage2c_b" / "runs")
     parser.add_argument("--thread-count", type=int, default=1)
+    parser.add_argument("--factor-graph-rerun-host")
+    parser.add_argument("--factor-graph-recording-id")
+    parser.add_argument("--factor-graph-stride", type=int, default=5)
     args = parser.parse_args()
+    if bool(args.factor_graph_rerun_host) != bool(args.factor_graph_recording_id):
+        parser.error("factor-graph host and recording ID must be provided together")
+    if args.factor_graph_stride < 1:
+        parser.error("--factor-graph-stride must be positive")
     run_dir = args.run_root / args.name
     if run_dir.exists():
         raise SystemExit(f"refusing to overwrite run: {run_dir}")
@@ -130,9 +137,18 @@ def main():
         "_glim_cbs_odometry_topic:=/glim/cbs/odometry",
         "_glim_cbs_belief_receive_start_delay_sec:=999999.0",
         "_glim_cbs_rerun_visualizer_enable:=false",
-        "_glim_factor_graph_inspector_enable:=false",
+        "_glim_factor_graph_inspector_enable:=" +
+        ("true" if args.factor_graph_rerun_host else "false"),
         "_glim_dcreg_belief_shadow_enable:=false", "_glim_timing_enable:=true",
     ]
+    if args.factor_graph_rerun_host:
+        params.extend([
+            f"_glim_factor_graph_inspector_host:={args.factor_graph_rerun_host}",
+            f"_glim_factor_graph_inspector_recording_id:={args.factor_graph_recording_id}",
+            f"_glim_factor_graph_inspector_stride:={args.factor_graph_stride}",
+            "_glim_factor_graph_inspector_context_windows:=2",
+            f"_glim_dcreg_visualization_stride:={args.factor_graph_stride}",
+        ])
     command = setup + "rosrun glim_ros glim_rosbag " + args.bag + " " + " ".join(params)
     started = time.monotonic()
     glim = docker_process(command, environment=environment, stdout=logs["glim"],
@@ -180,6 +196,9 @@ def main():
         "parameters": params,
         "factors_remaining": ["LiDAR matching", "IMU", "fixed-lag marginal prior"],
         "active_health_or_covariance_policy": False,
+        "factor_graph_rerun_host": args.factor_graph_rerun_host,
+        "factor_graph_recording_id": args.factor_graph_recording_id,
+        "factor_graph_stride": args.factor_graph_stride,
     }
     (run_dir / "run_manifest.json").write_text(
         json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
